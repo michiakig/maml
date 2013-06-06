@@ -115,6 +115,52 @@ structure ConstrSet = BinarySetFn(
              end
    end)
 
+   fun showTyp TNum     = "TNum"
+     | showTyp TBool    = "TBool"
+     | showTyp (TVar s) = "TVar " ^ s
+     | showTyp (TArrow (t1, t2)) =
+       "TArrow (" ^ showTyp t1 ^ "," ^ showTyp t2 ^ "," ^ ")"
+
+   fun showAst (Bool b)   = "Bool " ^ Bool.toString b
+     | showAst (Num n)    = "Num " ^ Int.toString n
+     | showAst (Succ e)   = "Succ (" ^ showAst e  ^ ")"
+     | showAst (Pred e)   = "Pred (" ^ showAst e  ^ ")"
+     | showAst (IsZero e) = "IsZero (" ^ showAst e  ^ ")"
+     | showAst (If (e1, e2, e3)) =
+       "If (" ^ showAst e1 ^ "," ^ showAst e2 ^ "," ^ showAst e3 ^ ")"
+     | showAst (App (e1, e2)) = "App (" ^ showAst e1 ^ "," ^ showAst e2 ^ ")"
+     | showAst (Fun (x, e)) = "Fun (" ^ x ^ "," ^ showAst e ^ ")"
+     | showAst (Id x) = "Id " ^ x
+
+   structure ShowString =
+      struct
+         type t = string
+         val show = Show.string
+      end
+   structure ShowAst =
+      struct
+         type t = ast
+         val show = showAst
+      end
+   structure ShowAstStringMap =
+      MapShowFn(structure Map = StringMap
+                structure K = ShowString
+                structure V = ShowAst)
+
+   structure ShowStringAstMap =
+      MapShowFn(structure Map = AstMap
+                structure K = ShowAst
+                structure V = ShowString)
+
+   fun showConstr ({lhs, rhs} : constr) = "{" ^ lhs ^ "," ^ showTyp rhs ^ "}"
+
+   structure ShowConstraintSet =
+      SetShowFn(structure Set = ConstrSet
+                structure Show = struct
+                   type t = constr
+                   val show = showConstr
+                end)
+
 local
    val astId = ref 0
    val tVarId = ref 0
@@ -139,8 +185,9 @@ in
        ; tVarId := 0)
 end
 
+exception Bound
 local
-   fun getTVar (e, env as (tVar2Ast, ast2TVar)) =
+   fun lookup (e, env as (tVar2Ast, ast2TVar)) =
        case AstMap.find (ast2TVar, e) of
            SOME tvar => (tvar, env)
          | NONE =>
@@ -150,13 +197,18 @@ local
               (tvar, (StringMap.insert (tVar2Ast, tvar, e),
                       AstMap.insert (ast2TVar, e, tvar)))
            end
+   fun insert (e, tvar, env as (tVar2Ast, ast2TVar)) =
+       case (AstMap.find (ast2TVar, e), StringMap.find (tVar2Ast, tvar)) of
+           (NONE, NONE) => (StringMap.insert (tVar2Ast, tvar, e),
+                            AstMap.insert (ast2TVar, e, tvar))
+         | _ => raise Bound
 in
 
 type env = ast StringMap.map * string AstMap.map
 val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
  fn (e, constrs, env as (tVar2Ast, ast2TVar)) =>
     let
-       val (tvar, env' as (tVar2Ast', ast2TVar')) = getTVar (e, env)
+       val (tvar, env' as (tVar2Ast', ast2TVar')) = lookup (e, env)
     in
        case e of
 
@@ -197,25 +249,82 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
                env'')
            end
 
+         | If (e1, e2, e3) =>
+           let
+              val tv1 = gensym ()
+              val tv2 = gensym ()
+              val tv3 = gensym ()
+              val (constrs', env'') =
+                  genCon (e1, constrs,
+                          insert (e3, tv3,
+                                  insert (e2, tv2,
+                                          insert (e1, tv1, env'))))
+              val (constrs'', env''') = genCon (e2, constrs', env'')
+              val (constrs''', env'''') = genCon (e3, constrs'', env''')
+              val constrs = [
+                 {lhs = tv1, rhs = TBool},
+                 {lhs = tv2, rhs = TVar tv3},
+                 {lhs = tv3, rhs = TVar tv2},
+                 {lhs = tvar, rhs = TVar tv3}
+              ]
+           in
+              (ConstrSet.addList (constrs''', constrs),
+               env'''')
+           end
+
     end
 end
 
-exception NotImplemented
+exception NotImplemented of string
+exception TypeError
 exception Conflict
 
-fun resolve ({lhs, rhs} : constr, subst) =
-    case StringMap.find (subst, lhs) of
-        SOME bound => (case (bound, rhs) of
-                           (TNum, TNum) => subst
-                         | (TBool, TBool) => subst
-                         | (TVar _, TVar _) => raise NotImplemented
-                         | _ => raise Conflict)
-      | NONE => StringMap.insert (subst, lhs, rhs)
+(* apply a substitution to a single type *)
+fun applySub2Typ (s, TBool)           = TBool
+  | applySub2Typ (s, TNum)            = TNum
+  | applySub2Typ (s, typ as TVar tv)  =
+    (case StringMap.find (s, tv) of
+         SOME typ' => typ'
+       | NONE      => typ)
+  | applySub2Typ (s, TArrow (t1, t2)) = TArrow (applySub2Typ (s, t1),
+                                                applySub2Typ (s, t2))
+
+(* apply a substitution to a constraint *)
+fun applyS2C (s, c as {lhs, rhs} : constr) : constr option =
+    let
+       val rhs' = applySub2Typ (s, rhs)
+    in
+       case (StringMap.find (s, lhs), rhs') of
+           (SOME (TVar b), _)  => SOME {lhs = b, rhs = rhs' }
+         | (SOME typ, TVar tv) => SOME {lhs = tv, rhs = applySub2Typ (s, typ)}
+         | (SOME TBool, TBool) => NONE
+         | (SOME TNum, TNum)   => NONE
+         | (SOME TBool, TNum)  => raise TypeError
+         | (SOME TNum, TBool)  => raise TypeError
+         | (NONE, _)           => SOME {lhs = lhs, rhs = rhs'}
+         | _                   => raise NotImplemented "applyS2C"
+    end
+
+(* apply a constraint to a substitution *)
+fun applyC2S (c as {lhs, rhs}, s) : typ StringMap.map =
+    let
+       fun f (k, v) =
+           case v of
+               (TVar v') => if lhs = v' then rhs else v
+             | _ => v
+    in
+       StringMap.insert (StringMap.mapi f s, lhs, rhs)
+    end
+
+fun extendSub (c as {lhs, rhs} : constr, s) : typ StringMap.map =
+    case applyS2C (s, c) of
+        SOME (c' as {lhs, rhs}) => applyC2S (c', StringMap.insert (s, lhs, rhs))
+      | NONE => s
 
 fun unify (constrs : ConstrSet.set) =
     let
        fun unify' ([], acc) = acc
-         | unify' (c :: stack, acc) = unify' (stack, resolve (c, acc))
+         | unify' (c :: stack, acc) = unify' (stack, extendSub (c, acc))
     in
        unify' (ConstrSet.listItems constrs, StringMap.empty)
     end
