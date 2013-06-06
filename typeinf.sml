@@ -3,22 +3,34 @@ struct
 
 datatype typ = TNum
              | TBool
+             | TArrow of typ * typ
              | TVar of string
 
 (* boilerplate comparison stuff *)
 fun typcompare (TNum       , TNum)                   = EQUAL
   | typcompare (TBool      , TBool)                  = EQUAL
+  | typcompare (TArrow (t1 , t2), TArrow (t1', t2')) =
+    (case typcompare (t1, t1') of
+        EQUAL => typcompare (t2', t2')
+      | ord => ord)
   | typcompare (TVar s   , TVar s') = String.compare (s, s')
   | typcompare (TNum     , _)       = GREATER
   | typcompare (TBool    , TNum)    = LESS
   | typcompare (TBool    , _)       = GREATER
+  | typcompare (TArrow _ , TNum)    = LESS
+  | typcompare (TArrow _ , TBool)   = LESS
+  | typcompare (TArrow _ , _)       = GREATER
   | typcompare (TVar _   , _)       = LESS
 
-datatype ast = Bool of bool
-             | Num of int
+datatype ast = Num of int
+             | Bool of bool
              | Succ of ast
              | Pred of ast
              | IsZero of ast
+             | If of ast * ast * ast
+             | App of ast * ast
+             | Fun of string * ast
+             | Id of string
 
 (* boilerplate comparison stuff *)
 fun astcompare (Num n      , Num n')     = Int.compare (n, n')
@@ -42,6 +54,32 @@ fun astcompare (Num n      , Num n')     = Int.compare (n, n')
   | astcompare (IsZero _   , Bool _)     = LESS
   | astcompare (IsZero _   , Succ _)     = LESS
   | astcompare (IsZero _   , Pred _)     = LESS
+  | astcompare (IsZero _   ,  _)         = GREATER
+  | astcompare (If (e1, e2, e3), If (e1', e2', e3')) =
+    (case (astcompare (e1, e1'), astcompare (e2, e2'), astcompare (e3, e3')) of
+         (EQUAL, EQUAL, ord) => ord
+       | (EQUAL, ord, _) => ord
+       | (ord, _, _) => ord)
+  | astcompare (If _, App _) = GREATER
+  | astcompare (If _, Fun _) = GREATER
+  | astcompare (If _, Id _) = GREATER
+  | astcompare (If _, _) = LESS
+  | astcompare (App (e1, e2), App (e1', e2')) =
+    (case (astcompare (e1, e1'), astcompare (e2, e2')) of
+         (EQUAL, ord) => ord
+       | (GREATER, _) => GREATER
+       | (LESS, _) => LESS)
+  | astcompare (App _, Fun _) = GREATER
+  | astcompare (App _, Id _) = GREATER
+  | astcompare (App _, _) = LESS
+  | astcompare (Fun (s, e), Fun (s', e')) =
+    (case String.compare (s, s') of
+         EQUAL => astcompare (e, e')
+       | ord => ord)
+  | astcompare (Fun _, Id _) = GREATER
+  | astcompare (Fun _, _) = LESS
+  | astcompare (Id i, Id i') = String.compare (i, i')
+  | astcompare (Id _, _) = LESS
 
 (*
  * Used to map type vars (string) to ast nodes (ast)
