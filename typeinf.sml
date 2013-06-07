@@ -81,18 +81,18 @@ fun astcompare (Num (_, n) , Num (_, n'))                  = Int.compare (n, n')
   | astcompare (Id (_, i), Id (_, i'))                     = String.compare (i, i')
   | astcompare (Id _, _)                                   = LESS
 
-(*
- * Used to map type vars (string) to ast nodes (ast)
- * also used to map variables (string) to type vars (string)
- *)
 structure StringMap = BinaryMapFn(
    struct
       type ord_key = String.string
       val compare = String.compare
    end)
 
-structure AstMap = BinaryMapFn(
-   struct
+structure Env = BiMapFn(
+   structure Key = struct
+      type ord_key = String.string
+      val compare = String.compare
+   end
+   structure Val = struct
       type ord_key = ast
       val compare = astcompare
    end)
@@ -144,15 +144,6 @@ structure ConstrSet = BinarySetFn(
          type t = ast
          val show = showAst
       end
-   structure ShowAstStringMap =
-      MapShowFn(structure Map = StringMap
-                structure K = ShowString
-                structure V = ShowAst)
-
-   structure ShowStringAstMap =
-      MapShowFn(structure Map = AstMap
-                structure K = ShowAst
-                structure V = ShowString)
 
    fun showConstr ({lhs, rhs} : constr) = "{" ^ lhs ^ "," ^ showTyp rhs ^ "}"
 
@@ -179,28 +170,26 @@ end
 
 exception Bound
 local
-   fun lookup (e, env as (tVar2Ast, ast2TVar)) =
-       case AstMap.find (ast2TVar, e) of
+   fun lookup (e, env) =
+       case Env.findV (env, e) of
            SOME tvar => (tvar, env)
          | NONE =>
            let
               val tvar = gensym ()
            in
-              (tvar, (StringMap.insert (tVar2Ast, tvar, e),
-                      AstMap.insert (ast2TVar, e, tvar)))
+              (tvar, Env.insert (env, tvar, e))
            end
-   fun insert (e, tvar, env as (tVar2Ast, ast2TVar)) =
-       case (AstMap.find (ast2TVar, e), StringMap.find (tVar2Ast, tvar)) of
-           (NONE, NONE) => (StringMap.insert (tVar2Ast, tvar, e),
-                            AstMap.insert (ast2TVar, e, tvar))
+   fun insert (e, tvar, env) =
+       case Env.findV (env, e) of
+           NONE => Env.insert (env, tvar, e)
          | _ => raise Bound
 in
 
-type env = ast StringMap.map * string AstMap.map
+type env = Env.map
 val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
- fn (e, constrs, env as (tVar2Ast, ast2TVar)) =>
+ fn (e, constrs, env) =>
     let
-       val (tvar, env' as (tVar2Ast', ast2TVar')) = lookup (e, env)
+       val (tvar, env') = lookup (e, env)
     in
        case e of
 
@@ -210,9 +199,8 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
 
          | Succ (_, e1) =>
            let
-              val (constrs', env'' as (tVar2Ast'', ast2TVar'')) =
-                  genCon (e1, constrs, env')
-              val child = Option.valOf (AstMap.find (ast2TVar'', e1))
+              val (constrs', env'') = genCon (e1, constrs, env')
+              val child = Option.valOf (Env.findV (env'', e1))
            in
               (ConstrSet.add (ConstrSet.add (constrs', {lhs = tvar, rhs = TNum}),
                               {lhs = child, rhs = TNum}),
@@ -221,9 +209,8 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
 
          | Pred (_, e1) => (* identical to Succ case above :( *)
            let
-              val (constrs', env'' as (tVar2Ast'', ast2TVar'')) =
-                  genCon (e1, constrs, env')
-              val child = Option.valOf (AstMap.find (ast2TVar'', e1)) 
+              val (constrs', env'') = genCon (e1, constrs, env')
+              val child = Option.valOf (Env.findV (env'', e1))
            in
               (ConstrSet.add (ConstrSet.add (constrs', {lhs = tvar, rhs = TNum}),
                               {lhs = child, rhs = TNum}),
@@ -232,9 +219,8 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
 
          | IsZero (_, e1) =>
            let
-              val (constrs', env'' as (tVar2Ast'', ast2TVar'')) =
-                  genCon (e1, constrs, env')
-              val child = Option.valOf (AstMap.find (ast2TVar'', e1))
+              val (constrs', env'') = genCon (e1, constrs, env')
+              val child = Option.valOf (Env.findV (env'', e1))
            in
               (ConstrSet.add (ConstrSet.add (constrs', {lhs = tvar, rhs = TBool}),
                               {lhs = child, rhs = TNum}),
@@ -260,8 +246,7 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
                  {lhs = tvar, rhs = TVar tv3}
               ]
            in
-              (ConstrSet.addList (constrs''', constrs),
-               env'''')
+              (ConstrSet.addList (constrs''', constrs), env'''')
            end
 
     end
@@ -324,12 +309,10 @@ fun unify (constrs : ConstrSet.set) =
 fun typeof (e : ast) : typ =
     (reset ();
      let
-        val (constraints, (tVar2Ast, ast2TVar)) =
-            genCon (e, ConstrSet.empty, (StringMap.empty, AstMap.empty))
+        val (constraints, env) = genCon (e, ConstrSet.empty, Env.empty)
         val substitution = unify constraints
      in
-        Option.valOf (StringMap.find (substitution,
-                                      Option.valOf (AstMap.find (ast2TVar, e))))
+        Option.valOf (StringMap.find (substitution, Option.valOf (Env.findV (env, e))))
      end)
 
 end
