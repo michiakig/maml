@@ -153,12 +153,8 @@ local
    val letters = Array.fromList (String.explode "abcdefghijklmnopqrstuvwxyz")
 in
    fun gensym () =
-       let
-          val tVarId' = !tVarId
-       in
-          (tVarId := tVarId' + 1
-          ; Char.toString (Array.sub (letters, tVarId' mod 26)) ^ Int.toString tVarId')
-       end
+       (Char.toString (Array.sub (letters, !tVarId mod 26)) ^ Int.toString (!tVarId))
+       before (tVarId := !tVarId + 1)
    fun reset () = tVarId := 0
 end
 
