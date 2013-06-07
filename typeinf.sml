@@ -32,72 +32,66 @@ datatype ast = Num of int * int
              | Fun of int * string * ast
              | Id of int * string
 
-(* boilerplate comparison stuff *)
-fun astcompare (Num (_, n) , Num (_, n'))                  = Int.compare (n, n')
-  | astcompare (Num _ , _)                                 = GREATER
-  | astcompare (Bool (_, true), Bool (_, false))           = GREATER
-  | astcompare (Bool (_, false), Bool (_, true))           = LESS
-  | astcompare (Bool _ , Bool _)                           = EQUAL
-  | astcompare (Bool _ , Num _)                            = LESS
-  | astcompare (Bool _ ,  _)                               = GREATER
-  | astcompare (Succ (_, e) , Succ (_, e'))                = astcompare (e, e')
-  | astcompare (Succ _ , Num _)                            = LESS
-  | astcompare (Succ _ , Bool _)                           = LESS
-  | astcompare (Succ _ ,  _)                               = GREATER
-  | astcompare (Pred (_, e) , Pred (_, e'))                = astcompare (e, e')
-  | astcompare (Pred _ , Num _)                            = LESS
-  | astcompare (Pred _ , Bool _)                           = LESS
-  | astcompare (Pred _ , Succ _)                           = LESS
-  | astcompare (Pred _ , _)                                = GREATER
-  | astcompare (IsZero (_, e) , IsZero (_, e'))            = astcompare (e, e')
-  | astcompare (IsZero _ , Num _)                          = LESS
-  | astcompare (IsZero _ , Bool _)                         = LESS
-  | astcompare (IsZero _ , Succ _)                         = LESS
-  | astcompare (IsZero _ , Pred _)                         = LESS
-  | astcompare (IsZero _ ,  _)                             = GREATER
-  | astcompare (If (_, e1, e2, e3), If (_, e1', e2', e3')) =
-    (case (astcompare (e1, e1'), astcompare (e2, e2'), astcompare (e3, e3')) of
-         (EQUAL, EQUAL, ord) => ord
-       | (EQUAL, ord, _)     => ord
-       | (ord, _, _)         => ord)
-  | astcompare (If _, App _)                               = GREATER
-  | astcompare (If _, Fun _)                               = GREATER
-  | astcompare (If _, Id _)                                = GREATER
-  | astcompare (If _, _)                                   = LESS
-  | astcompare (App (_, e1, e2), App (_, e1', e2'))        =
-    (case (astcompare (e1, e1'), astcompare (e2, e2')) of
-         (EQUAL, ord) => ord
-       | (GREATER, _) => GREATER
-       | (LESS, _)    => LESS)
-  | astcompare (App _, Fun _)                              = GREATER
-  | astcompare (App _, Id _)                               = GREATER
-  | astcompare (App _, _)                                  = LESS
-  | astcompare (Fun (_, s, e), Fun (_, s', e')) =
-    (case String.compare (s, s') of
-         EQUAL => astcompare (e, e')
-       | ord   => ord)
-  | astcompare (Fun _, Id _)                               = GREATER
-  | astcompare (Fun _, _)                                  = LESS
-  | astcompare (Id (_, i), Id (_, i'))                     = String.compare (i, i')
-  | astcompare (Id _, _)                                   = LESS
+fun findByid (n as Num (id, _), id') = if id = id' then SOME n else NONE
+  | findByid (n as Bool (id, _), id') = if id = id' then SOME n else NONE
+  | findByid (n as Succ (id, _), id') = if id = id' then SOME n else NONE
+  | findByid (n as Pred (id, _), id') = if id = id' then SOME n else NONE
+  | findByid (n as IsZero (id, _), id') = if id = id' then SOME n else NONE
+  | findByid (n as If (id, e1, e2, e3), id') =
+    if id = id'
+       then SOME n
+    else (case findByid (e1, id') of
+              SOME n => SOME n
+            | NONE => case findByid (e2, id') of
+                          SOME n => SOME n
+                        | NONE => case findByid (e3, id') of
+                                      SOME n => SOME n
+                                    | NONE => NONE)
+  | findByid (n as App (id, e1, e2), id') =
+    if id = id'
+       then SOME n
+    else (case findByid (e1, id') of
+              SOME n => SOME n
+            | NONE => case findByid (e2, id') of
+                          SOME n => SOME n
+                        | NONE => NONE)
+  | findByid (n as Fun (id, _, e), id') =
+    if id = id'
+       then SOME n
+    else (case findByid (e, id') of
+              SOME n => SOME n
+            | NONE => NONE)
+  | findByid (n as Id (id, _), id') = if id = id' then SOME n else NONE
 
+fun getId (Num (id, _))      = id
+  | getId (Bool (id, _))     = id
+  | getId (Succ (id, _))     = id
+  | getId (Pred (id, _))     = id
+  | getId (IsZero (id, _))   = id
+  | getId (If (id, _, _, _)) = id
+  | getId (App (id, _, _))   = id
+  | getId (Fun (id, _, _))   = id
+  | getId (Id (id, _))       = id
+
+(* substitution, map from typvars (strings) to typ *)
 structure StringMap = BinaryMapFn(
    struct
       type ord_key = String.string
       val compare = String.compare
    end)
 
+(* environment, 1-1 mapping between ast ids (ints) and type vars (strings) *)
 structure Env = BiMapFn(
    structure Key = struct
       type ord_key = String.string
       val compare = String.compare
    end
    structure Val = struct
-      type ord_key = ast
-      val compare = astcompare
+      type ord_key = int
+      val compare = Int.compare
    end)
 
-(* constraint is a mapping from type var (string) to type *)
+(* constraint is relates a type var (string) to type *)
 type constr = {lhs: string, rhs: typ}
 
 structure ConstrSet = BinarySetFn(
@@ -171,17 +165,17 @@ end
 exception Bound
 local
    fun lookup (e, env) =
-       case Env.findV (env, e) of
+       case Env.findV (env, getId e) of
            SOME tvar => (tvar, env)
          | NONE =>
            let
               val tvar = gensym ()
            in
-              (tvar, Env.insert (env, tvar, e))
+              (tvar, Env.insert (env, tvar, getId e))
            end
    fun insert (e, tvar, env) =
-       case Env.findV (env, e) of
-           NONE => Env.insert (env, tvar, e)
+       case Env.findV (env, getId e) of
+           NONE => Env.insert (env, tvar, getId e)
          | _ => raise Bound
 in
 
@@ -200,7 +194,7 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
          | Succ (_, e1) =>
            let
               val (constrs', env'') = genCon (e1, constrs, env')
-              val child = Option.valOf (Env.findV (env'', e1))
+              val child = Option.valOf (Env.findV (env'', getId e1))
            in
               (ConstrSet.add (ConstrSet.add (constrs', {lhs = tvar, rhs = TNum}),
                               {lhs = child, rhs = TNum}),
@@ -210,7 +204,7 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
          | Pred (_, e1) => (* identical to Succ case above :( *)
            let
               val (constrs', env'') = genCon (e1, constrs, env')
-              val child = Option.valOf (Env.findV (env'', e1))
+              val child = Option.valOf (Env.findV (env'', getId e1))
            in
               (ConstrSet.add (ConstrSet.add (constrs', {lhs = tvar, rhs = TNum}),
                               {lhs = child, rhs = TNum}),
@@ -220,7 +214,7 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
          | IsZero (_, e1) =>
            let
               val (constrs', env'') = genCon (e1, constrs, env')
-              val child = Option.valOf (Env.findV (env'', e1))
+              val child = Option.valOf (Env.findV (env'', getId e1))
            in
               (ConstrSet.add (ConstrSet.add (constrs', {lhs = tvar, rhs = TBool}),
                               {lhs = child, rhs = TNum}),
@@ -312,7 +306,8 @@ fun typeof (e : ast) : typ =
         val (constraints, env) = genCon (e, ConstrSet.empty, Env.empty)
         val substitution = unify constraints
      in
-        Option.valOf (StringMap.find (substitution, Option.valOf (Env.findV (env, e))))
+        Option.valOf (StringMap.find (substitution,
+                                      Option.valOf (Env.findV (env, getId e))))
      end)
 
 end
