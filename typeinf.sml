@@ -22,64 +22,64 @@ fun typcompare (TNum       , TNum)                   = EQUAL
   | typcompare (TArrow _ , _)       = GREATER
   | typcompare (TVar _   , _)       = LESS
 
-datatype ast = Num of int
-             | Bool of bool
-             | Succ of ast
-             | Pred of ast
-             | IsZero of ast
-             | If of ast * ast * ast
-             | App of ast * ast
-             | Fun of string * ast
-             | Id of string
+datatype ast = Num of int * int
+             | Bool of int * bool
+             | Succ of int * ast
+             | Pred of int * ast
+             | IsZero of int * ast
+             | If of int * ast * ast * ast
+             | App of int * ast * ast
+             | Fun of int * string * ast
+             | Id of int * string
 
 (* boilerplate comparison stuff *)
-fun astcompare (Num n      , Num n')     = Int.compare (n, n')
-  | astcompare (Num _      , _)          = GREATER
-  | astcompare (Bool true  , Bool false) = GREATER
-  | astcompare (Bool false , Bool true)  = LESS
-  | astcompare (Bool _     , Bool _)     = EQUAL
-  | astcompare (Bool _     , Num _)      = LESS
-  | astcompare (Bool _     ,  _)         = GREATER
-  | astcompare (Succ e     , Succ e')    = astcompare (e, e')
-  | astcompare (Succ _     , Num _)      = LESS
-  | astcompare (Succ _     , Bool _)     = LESS
-  | astcompare (Succ _     ,  _)         = GREATER
-  | astcompare (Pred e     , Pred e')    = astcompare (e, e')
-  | astcompare (Pred _     , Num _)      = LESS
-  | astcompare (Pred _     , Bool _)     = LESS
-  | astcompare (Pred _     , Succ _)     = LESS
-  | astcompare (Pred _     , _)          = GREATER
-  | astcompare (IsZero e   , IsZero e')  = astcompare (e, e')
-  | astcompare (IsZero _   , Num _)      = LESS
-  | astcompare (IsZero _   , Bool _)     = LESS
-  | astcompare (IsZero _   , Succ _)     = LESS
-  | astcompare (IsZero _   , Pred _)     = LESS
-  | astcompare (IsZero _   ,  _)         = GREATER
-  | astcompare (If (e1, e2, e3), If (e1', e2', e3')) =
+fun astcompare (Num (_, n) , Num (_, n'))                  = Int.compare (n, n')
+  | astcompare (Num _ , _)                                 = GREATER
+  | astcompare (Bool (_, true), Bool (_, false))           = GREATER
+  | astcompare (Bool (_, false), Bool (_, true))           = LESS
+  | astcompare (Bool _ , Bool _)                           = EQUAL
+  | astcompare (Bool _ , Num _)                            = LESS
+  | astcompare (Bool _ ,  _)                               = GREATER
+  | astcompare (Succ (_, e) , Succ (_, e'))                = astcompare (e, e')
+  | astcompare (Succ _ , Num _)                            = LESS
+  | astcompare (Succ _ , Bool _)                           = LESS
+  | astcompare (Succ _ ,  _)                               = GREATER
+  | astcompare (Pred (_, e) , Pred (_, e'))                = astcompare (e, e')
+  | astcompare (Pred _ , Num _)                            = LESS
+  | astcompare (Pred _ , Bool _)                           = LESS
+  | astcompare (Pred _ , Succ _)                           = LESS
+  | astcompare (Pred _ , _)                                = GREATER
+  | astcompare (IsZero (_, e) , IsZero (_, e'))            = astcompare (e, e')
+  | astcompare (IsZero _ , Num _)                          = LESS
+  | astcompare (IsZero _ , Bool _)                         = LESS
+  | astcompare (IsZero _ , Succ _)                         = LESS
+  | astcompare (IsZero _ , Pred _)                         = LESS
+  | astcompare (IsZero _ ,  _)                             = GREATER
+  | astcompare (If (_, e1, e2, e3), If (_, e1', e2', e3')) =
     (case (astcompare (e1, e1'), astcompare (e2, e2'), astcompare (e3, e3')) of
          (EQUAL, EQUAL, ord) => ord
-       | (EQUAL, ord, _) => ord
-       | (ord, _, _) => ord)
-  | astcompare (If _, App _) = GREATER
-  | astcompare (If _, Fun _) = GREATER
-  | astcompare (If _, Id _) = GREATER
-  | astcompare (If _, _) = LESS
-  | astcompare (App (e1, e2), App (e1', e2')) =
+       | (EQUAL, ord, _)     => ord
+       | (ord, _, _)         => ord)
+  | astcompare (If _, App _)                               = GREATER
+  | astcompare (If _, Fun _)                               = GREATER
+  | astcompare (If _, Id _)                                = GREATER
+  | astcompare (If _, _)                                   = LESS
+  | astcompare (App (_, e1, e2), App (_, e1', e2'))        =
     (case (astcompare (e1, e1'), astcompare (e2, e2')) of
          (EQUAL, ord) => ord
        | (GREATER, _) => GREATER
-       | (LESS, _) => LESS)
-  | astcompare (App _, Fun _) = GREATER
-  | astcompare (App _, Id _) = GREATER
-  | astcompare (App _, _) = LESS
-  | astcompare (Fun (s, e), Fun (s', e')) =
+       | (LESS, _)    => LESS)
+  | astcompare (App _, Fun _)                              = GREATER
+  | astcompare (App _, Id _)                               = GREATER
+  | astcompare (App _, _)                                  = LESS
+  | astcompare (Fun (_, s, e), Fun (_, s', e')) =
     (case String.compare (s, s') of
          EQUAL => astcompare (e, e')
-       | ord => ord)
-  | astcompare (Fun _, Id _) = GREATER
-  | astcompare (Fun _, _) = LESS
-  | astcompare (Id i, Id i') = String.compare (i, i')
-  | astcompare (Id _, _) = LESS
+       | ord   => ord)
+  | astcompare (Fun _, Id _)                               = GREATER
+  | astcompare (Fun _, _)                                  = LESS
+  | astcompare (Id (_, i), Id (_, i'))                     = String.compare (i, i')
+  | astcompare (Id _, _)                                   = LESS
 
 (*
  * Used to map type vars (string) to ast nodes (ast)
@@ -121,16 +121,18 @@ structure ConstrSet = BinarySetFn(
      | showTyp (TArrow (t1, t2)) =
        "TArrow (" ^ showTyp t1 ^ "," ^ showTyp t2 ^ "," ^ ")"
 
-   fun showAst (Bool b)   = "Bool " ^ Bool.toString b
-     | showAst (Num n)    = "Num " ^ Int.toString n
-     | showAst (Succ e)   = "Succ (" ^ showAst e  ^ ")"
-     | showAst (Pred e)   = "Pred (" ^ showAst e  ^ ")"
-     | showAst (IsZero e) = "IsZero (" ^ showAst e  ^ ")"
-     | showAst (If (e1, e2, e3)) =
-       "If (" ^ showAst e1 ^ "," ^ showAst e2 ^ "," ^ showAst e3 ^ ")"
-     | showAst (App (e1, e2)) = "App (" ^ showAst e1 ^ "," ^ showAst e2 ^ ")"
-     | showAst (Fun (x, e)) = "Fun (" ^ x ^ "," ^ showAst e ^ ")"
-     | showAst (Id x) = "Id " ^ x
+   fun showAst (Bool    (_, b))          = "Bool " ^ Bool.toString b
+     | showAst (Num     (_, n))          = "Num " ^ Int.toString n
+     | showAst (Succ    (_, e))          = "Succ (" ^ showAst e  ^ ")"
+     | showAst (Pred    (_, e))          = "Pred (" ^ showAst e  ^ ")"
+     | showAst (IsZero  (_, e))          = "IsZero (" ^ showAst e  ^ ")"
+     | showAst (If      (_, e1, e2, e3)) = "If (" ^ showAst e1 ^ ","
+                                                  ^ showAst e2 ^ ","
+                                                  ^ showAst e3 ^ ")"
+     | showAst (App     (_, e1, e2))     = "App (" ^ showAst e1 ^ ","
+                                                   ^ showAst e2 ^ ")"
+     | showAst (Fun     (_, x, e))       = "Fun (" ^ x ^ "," ^ showAst e ^ ")"
+     | showAst (Id      (_, x))          = "Id " ^ x
 
    structure ShowString =
       struct
@@ -162,7 +164,6 @@ structure ConstrSet = BinarySetFn(
                 end)
 
 local
-   val astId = ref 0
    val tVarId = ref 0
    val letters = Array.fromList (String.explode "abcdefghijklmnopqrstuvwxyz")
 in
@@ -173,16 +174,7 @@ in
           (tVarId := tVarId' + 1
           ; Char.toString (Array.sub (letters, tVarId' mod 26)) ^ Int.toString tVarId')
        end
-   fun newAstId () =
-       let
-          val astId' = !astId
-       in
-          (astId := astId' + 1
-          ; astId')
-       end
-   fun reset () =
-       (astId := 0
-       ; tVarId := 0)
+   fun reset () = tVarId := 0
 end
 
 exception Bound
@@ -216,7 +208,7 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
 
          | (Num _) => (ConstrSet.add (constrs, {lhs = tvar, rhs = TNum}), env')
 
-         | Succ e1 =>
+         | Succ (_, e1) =>
            let
               val (constrs', env'' as (tVar2Ast'', ast2TVar'')) =
                   genCon (e1, constrs, env')
@@ -227,7 +219,7 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
                env'')
            end
 
-         | Pred e1 => (* identical to Succ case above :( *)
+         | Pred (_, e1) => (* identical to Succ case above :( *)
            let
               val (constrs', env'' as (tVar2Ast'', ast2TVar'')) =
                   genCon (e1, constrs, env')
@@ -238,7 +230,7 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
                env'')
            end
 
-         | IsZero e1 =>
+         | IsZero (_, e1) =>
            let
               val (constrs', env'' as (tVar2Ast'', ast2TVar'')) =
                   genCon (e1, constrs, env')
@@ -249,7 +241,7 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
                env'')
            end
 
-         | If (e1, e2, e3) =>
+         | If (_, e1, e2, e3) =>
            let
               val tv1 = gensym ()
               val tv2 = gensym ()
@@ -329,7 +321,7 @@ fun unify (constrs : ConstrSet.set) =
        unify' (ConstrSet.listItems constrs, StringMap.empty)
     end
 
-fun typeof e =
+fun typeof (e : ast) : typ =
     (reset ();
      let
         val (constraints, (tVar2Ast, ast2TVar)) =
