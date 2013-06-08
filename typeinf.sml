@@ -94,12 +94,12 @@ structure Env = BiMapFn(
    end)
 
 (* constraint is relates a type var (string) to type *)
-type constr = {lhs: string, rhs: typ}
+type constraint = {lhs: string, rhs: typ}
 
 structure ConstrSet = BinarySetFn(
    struct
-      type ord_key = constr
-      val compare : constr * constr -> order =
+      type ord_key = constraint
+      val compare : constraint * constraint -> order =
           fn ({lhs = lhs , rhs = rhs },
               {lhs = lhs', rhs = rhs'}) =>
              let
@@ -142,12 +142,12 @@ structure ConstrSet = BinarySetFn(
          val show = showAst
       end
 
-   fun showConstr ({lhs, rhs} : constr) = "{" ^ lhs ^ "," ^ showTyp rhs ^ "}"
+   fun showConstr ({lhs, rhs} : constraint) = "{" ^ lhs ^ "," ^ showTyp rhs ^ "}"
 
    structure ShowConstraintSet =
       SetShowFn(structure Set = ConstrSet
                 structure Show = struct
-                   type t = constr
+                   type t = constraint
                    val show = showConstr
                 end)
 
@@ -260,7 +260,7 @@ fun applySub2Typ (s, TBool)           = TBool
                                                 applySub2Typ (s, t2))
 
 (* apply a substitution to a constraint *)
-fun applyS2C (s, c as {lhs, rhs} : constr) : constr option =
+fun applyS2C (s, c as {lhs, rhs} : constraint) : constraint option =
     let
        val rhs' = applySub2Typ (s, rhs)
     in
@@ -286,7 +286,7 @@ fun applyC2S (c as {lhs, rhs}, s) : typ StringMap.map =
        StringMap.insert (StringMap.mapi f s, lhs, rhs)
     end
 
-fun extendSub (c as {lhs, rhs} : constr, s) : typ StringMap.map =
+fun extendSub (c as {lhs, rhs} : constraint, s) : typ StringMap.map =
     case applyS2C (s, c) of
         SOME (c' as {lhs, rhs}) => applyC2S (c', StringMap.insert (s, lhs, rhs))
       | NONE => s
