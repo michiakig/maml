@@ -239,6 +239,19 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
               (ConstrSet.addList (constrs''', constrs), env'''')
            end
 
+         | Fun (boundid, _, _, body) =>
+           let
+              val tvbody = gensym ()
+              val (constrs', env'') = genCon (body, constrs, insert (body, tvbody, env'))
+              val tvid = Option.valOf (Env.findV (env'', boundid))
+           in
+              (ConstrSet.add (constrs', {lhs = TVar tvar, rhs = TArrow (TVar tvid, TVar tvbody)}), env'')
+           end
+
+         | Id (_, name) => (constrs, env')
+
+         | _ => (print ("match failed: " ^ showAst e); raise Match)
+
     end
 end
 
