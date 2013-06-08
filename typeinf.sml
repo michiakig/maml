@@ -29,7 +29,9 @@ datatype ast = Num of int * int
              | IsZero of int * ast
              | If of int * ast * ast * ast
              | App of int * ast * ast
-             | Fun of int * string * ast
+             (* functions need two ids, one for the bound var,
+              * one for the fun expr itself *)
+             | Fun of int * int * string * ast
              | Id of int * string
 
 fun findByid (n as Num (id, _), id') = if id = id' then SOME n else NONE
@@ -55,7 +57,7 @@ fun findByid (n as Num (id, _), id') = if id = id' then SOME n else NONE
             | NONE => case findByid (e2, id') of
                           SOME n => SOME n
                         | NONE => NONE)
-  | findByid (n as Fun (id, _, e), id') =
+  | findByid (n as Fun (_, id, _, e), id') =
     if id = id'
        then SOME n
     else (case findByid (e, id') of
@@ -63,15 +65,15 @@ fun findByid (n as Num (id, _), id') = if id = id' then SOME n else NONE
             | NONE => NONE)
   | findByid (n as Id (id, _), id') = if id = id' then SOME n else NONE
 
-fun getId (Num (id, _))      = id
-  | getId (Bool (id, _))     = id
-  | getId (Succ (id, _))     = id
-  | getId (Pred (id, _))     = id
-  | getId (IsZero (id, _))   = id
-  | getId (If (id, _, _, _)) = id
-  | getId (App (id, _, _))   = id
-  | getId (Fun (id, _, _))   = id
-  | getId (Id (id, _))       = id
+fun getId (Num (id, _))       = id
+  | getId (Bool (id, _))      = id
+  | getId (Succ (id, _))      = id
+  | getId (Pred (id, _))      = id
+  | getId (IsZero (id, _))    = id
+  | getId (If (id, _, _, _))  = id
+  | getId (App (id, _, _))    = id
+  | getId (Fun (_, id, _, _)) = id
+  | getId (Id (id, _))        = id
 
 (* substitution, map from typvars (strings) to typ *)
 structure StringMap = BinaryMapFn(
@@ -80,7 +82,7 @@ structure StringMap = BinaryMapFn(
       val compare = String.compare
    end)
 
-(* environment, 1-1 mapping between ast ids (ints) and type vars (strings) *)
+(* 1-1 mapping between ast ids (ints) and type vars (strings) *)
 structure Env = BiMapFn(
    structure Key = struct
       type ord_key = String.string
@@ -109,24 +111,25 @@ structure ConstrSet = BinarySetFn(
              end
    end)
 
-   fun showTyp TNum     = "TNum"
-     | showTyp TBool    = "TBool"
-     | showTyp (TVar s) = "TVar " ^ s
-     | showTyp (TArrow (t1, t2)) =
-       "TArrow (" ^ showTyp t1 ^ "," ^ showTyp t2 ^ "," ^ ")"
+   fun showTyp TNum              = "num"
+     | showTyp TBool             = "bool"
+     | showTyp (TVar s)          = "'" ^ s
+     | showTyp (TArrow (t1, t2)) = "(" ^ showTyp t1 ^ ") -> (" ^ showTyp t2 ^ ")"
 
-   fun showAst (Bool    (_, b))          = "Bool " ^ Bool.toString b
-     | showAst (Num     (_, n))          = "Num " ^ Int.toString n
-     | showAst (Succ    (_, e))          = "Succ (" ^ showAst e  ^ ")"
-     | showAst (Pred    (_, e))          = "Pred (" ^ showAst e  ^ ")"
-     | showAst (IsZero  (_, e))          = "IsZero (" ^ showAst e  ^ ")"
-     | showAst (If      (_, e1, e2, e3)) = "If (" ^ showAst e1 ^ ","
-                                                  ^ showAst e2 ^ ","
-                                                  ^ showAst e3 ^ ")"
-     | showAst (App     (_, e1, e2))     = "App (" ^ showAst e1 ^ ","
+   fun showAst (Bool (id, b)) = "Bool " ^ Int.toString id ^ "," ^ Bool.toString b
+     | showAst (Num (id, n)) = "Num " ^ Int.toString id ^ "," ^ Int.toString n
+     | showAst (Succ (id, e)) = "Succ (" ^ Int.toString id ^ "," ^ showAst e ^ ")"
+     | showAst (Pred (id, e)) = "Pred (" ^ Int.toString id ^ "," ^ showAst e ^ ")"
+     | showAst (IsZero (id, e)) = "IsZero (" ^ Int.toString id ^ "," ^ showAst e ^ ")"
+     | showAst (If (id, e1, e2, e3)) =
+       "If (" ^ Int.toString id ^ ","
+       ^ showAst e1 ^ "," ^ showAst e2 ^ "," ^ showAst e3 ^ ")"
+     | showAst (App (id, e1, e2)) = "App (" ^ Int.toString id ^ "," ^ showAst e1 ^ ","
                                                    ^ showAst e2 ^ ")"
-     | showAst (Fun     (_, x, e))       = "Fun (" ^ x ^ "," ^ showAst e ^ ")"
-     | showAst (Id      (_, x))          = "Id " ^ x
+     | showAst (Fun (id1, id2, x, e)) =
+       "Fun (" ^ Int.toString id1 ^ "," ^ Int.toString id2 ^
+       "," ^ x ^ "," ^ showAst e ^ ")"
+     | showAst (Id (id, x)) = "Id (" ^ Int.toString id ^ "," ^ x ^ ")"
 
    structure ShowString =
       struct
