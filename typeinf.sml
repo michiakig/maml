@@ -93,8 +93,8 @@ structure Env = BiMapFn(
       val compare = Int.compare
    end)
 
-(* constraint is relates a type var (string) to type *)
-type constraint = {lhs: string, rhs: typ}
+(* constraint relates types to types *)
+type constraint = {lhs: typ, rhs: typ}
 
 structure ConstrSet = BinarySetFn(
    struct
@@ -102,13 +102,9 @@ structure ConstrSet = BinarySetFn(
       val compare : constraint * constraint -> order =
           fn ({lhs = lhs , rhs = rhs },
               {lhs = lhs', rhs = rhs'}) =>
-             let
-                val ord = String.compare (lhs, lhs')
-             in
-                case ord of
-                    EQUAL => typcompare (rhs, rhs')
-                  | _ => ord
-             end
+             case typcompare (lhs, lhs') of
+                 EQUAL => typcompare (rhs, rhs')
+               | ord => ord
    end)
 
    fun showTyp TNum              = "num"
@@ -142,7 +138,8 @@ structure ConstrSet = BinarySetFn(
          val show = showAst
       end
 
-   fun showConstr ({lhs, rhs} : constraint) = "{" ^ lhs ^ "," ^ showTyp rhs ^ "}"
+   fun showConstr ({lhs, rhs} : constraint) =
+       "{" ^ showTyp lhs ^ "," ^ showTyp rhs ^ "}"
 
    structure ShowConstraintSet =
       SetShowFn(structure Set = ConstrSet
@@ -186,17 +183,17 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
     in
        case e of
 
-           (Bool _) => (ConstrSet.add (constrs, {lhs = tvar, rhs = TBool}), env')
+           (Bool _) => (ConstrSet.add (constrs, {lhs = TVar tvar, rhs = TBool}), env')
 
-         | (Num _) => (ConstrSet.add (constrs, {lhs = tvar, rhs = TNum}), env')
+         | (Num _) => (ConstrSet.add (constrs, {lhs = TVar tvar, rhs = TNum}), env')
 
          | Succ (_, e1) =>
            let
               val (constrs', env'') = genCon (e1, constrs, env')
               val child = Option.valOf (Env.findV (env'', getId e1))
            in
-              (ConstrSet.add (ConstrSet.add (constrs', {lhs = tvar, rhs = TNum}),
-                              {lhs = child, rhs = TNum}),
+              (ConstrSet.add (ConstrSet.add (constrs', {lhs = TVar tvar, rhs = TNum}),
+                              {lhs = TVar child, rhs = TNum}),
                env'')
            end
 
@@ -205,8 +202,8 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
               val (constrs', env'') = genCon (e1, constrs, env')
               val child = Option.valOf (Env.findV (env'', getId e1))
            in
-              (ConstrSet.add (ConstrSet.add (constrs', {lhs = tvar, rhs = TNum}),
-                              {lhs = child, rhs = TNum}),
+              (ConstrSet.add (ConstrSet.add (constrs', {lhs = TVar tvar, rhs = TNum}),
+                              {lhs = TVar child, rhs = TNum}),
                env'')
            end
 
@@ -215,8 +212,8 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
               val (constrs', env'') = genCon (e1, constrs, env')
               val child = Option.valOf (Env.findV (env'', getId e1))
            in
-              (ConstrSet.add (ConstrSet.add (constrs', {lhs = tvar, rhs = TBool}),
-                              {lhs = child, rhs = TNum}),
+              (ConstrSet.add (ConstrSet.add (constrs', {lhs = TVar tvar, rhs = TBool}),
+                              {lhs = TVar child, rhs = TNum}),
                env'')
            end
 
@@ -233,10 +230,10 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
               val (constrs'', env''') = genCon (e2, constrs', env'')
               val (constrs''', env'''') = genCon (e3, constrs'', env''')
               val constrs = [
-                 {lhs = tv1, rhs = TBool},
-                 {lhs = tv2, rhs = TVar tv3},
-                 {lhs = tv3, rhs = TVar tv2},
-                 {lhs = tvar, rhs = TVar tv3}
+                 {lhs = TVar tv1, rhs = TBool},
+                 {lhs = TVar tv2, rhs = TVar tv3},
+                 {lhs = TVar tv3, rhs = TVar tv2},
+                 {lhs = TVar tvar, rhs = TVar tv3}
               ]
            in
               (ConstrSet.addList (constrs''', constrs), env'''')
@@ -248,53 +245,65 @@ end
 exception NotImplemented of string
 exception TypeError
 exception Conflict
+exception Assert of string
+
+(* replace tv with typ in a single type *)
+fun replace (_, _, TBool)            = TBool
+  | replace (_, _, TNum)             = TNum
+  | replace (tv, typ, t as TVar tv') = if tv = tv' then typ else t
+  | replace (tv, typ, TArrow (d, r)) =
+    TArrow (replace (tv, typ, d), replace (tv, typ, r))
 
 (* apply a substitution to a single type *)
-fun applySub2Typ (s, TBool)           = TBool
-  | applySub2Typ (s, TNum)            = TNum
-  | applySub2Typ (s, typ as TVar tv)  =
-    (case StringMap.find (s, tv) of
-         SOME typ' => typ'
-       | NONE      => typ)
-  | applySub2Typ (s, TArrow (t1, t2)) = TArrow (applySub2Typ (s, t1),
-                                                applySub2Typ (s, t2))
+fun substitute s TBool           = TBool
+  | substitute s TNum            = TNum
+  | substitute s (t as TVar tv)  = (case StringMap.find (s, tv) of
+                                      SOME t' => t'
+                                    | NONE    => t)
+  | substitute s (TArrow (d, r)) = TArrow (substitute s d, substitute s r)
 
-(* apply a substitution to a constraint *)
-fun applyS2C (s, c as {lhs, rhs} : constraint) : constraint option =
-    let
-       val rhs' = applySub2Typ (s, rhs)
-    in
-       case (StringMap.find (s, lhs), rhs') of
-           (SOME (TVar b), _)  => SOME {lhs = b, rhs = rhs' }
-         | (SOME typ, TVar tv) => SOME {lhs = tv, rhs = applySub2Typ (s, typ)}
-         | (SOME TBool, TBool) => NONE
-         | (SOME TNum, TNum)   => NONE
-         | (SOME TBool, TNum)  => raise TypeError
-         | (SOME TNum, TBool)  => raise TypeError
-         | (NONE, _)           => SOME {lhs = lhs, rhs = rhs'}
-         | _                   => raise NotImplemented "applyS2C"
-    end
-
-(* apply a constraint to a substitution *)
-fun applyC2S (c as {lhs, rhs}, s) : typ StringMap.map =
+(* replace tv with typ in a substitution *)
+fun extend (tv : string, typ : typ, s : typ StringMap.map) : typ StringMap.map =
     let
        fun f (k, v) =
-           case v of
-               (TVar v') => if lhs = v' then rhs else v
-             | _ => v
+           if k = tv
+              then raise (Assert ("apply2S: bound type var in substitution, " ^
+                          k ^ " bound to " ^ showTyp v))
+           else replace (tv, typ, v)
     in
-       StringMap.insert (StringMap.mapi f s, lhs, rhs)
+       StringMap.insert (StringMap.mapi f s, tv, typ)
     end
 
-fun extendSub (c as {lhs, rhs} : constraint, s) : typ StringMap.map =
-    case applyS2C (s, c) of
-        SOME (c' as {lhs, rhs}) => applyC2S (c', StringMap.insert (s, lhs, rhs))
-      | NONE => s
+fun substituteInC s ({lhs, rhs} : constraint) : constraint =
+    {lhs = substitute s lhs, rhs = substitute s rhs}
+
+val applyAndExtend : (typ StringMap.map * constraint list * string * typ) -> constraint list * typ StringMap.map =
+    fn (sub, stack, tv, typ) =>
+       case StringMap.find (sub, tv) of
+           (* unbound... *)
+           NONE => let val sub' = extend (tv, typ, sub)
+                   in (map (substituteInC sub') stack, sub')
+                   end
+         (* what to do if this is already bound ? *)
+         | SOME _ => raise (NotImplemented "applyAndExtend")
 
 fun unify (constrs : ConstrSet.set) =
     let
        fun unify' ([], acc) = acc
-         | unify' (c :: stack, acc) = unify' (stack, extendSub (c, acc))
+         | unify' ({lhs, rhs} :: stack, acc) =
+           case (lhs, rhs) of
+               (TVar tv, typ) => unify' (applyAndExtend (acc, stack, tv, typ))
+
+             | (typ, TVar tv) => unify' (applyAndExtend (acc, stack, tv, typ))
+
+             | (TArrow (dom, rng), TArrow (dom', rng')) =>
+               unify' ({lhs = dom, rhs = dom'} :: {lhs = rng, rhs = rng'} :: stack, acc)
+
+             | (TBool, TBool) => unify' (stack, acc)
+
+             | (TNum, TNum) => unify' (stack, acc)
+
+             | _ => raise TypeError
     in
        unify' (ConstrSet.listItems constrs, StringMap.empty)
     end
