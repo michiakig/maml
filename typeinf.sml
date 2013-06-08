@@ -250,8 +250,6 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
 
          | Id (_, name) => (constrs, env')
 
-         | _ => (print ("match failed: " ^ showAst e); raise Match)
-
     end
 end
 
