@@ -250,6 +250,18 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
 
          | Id (_, name) => (constrs, env')
 
+         | App (_, f, a) =>
+           let
+              val tvf = gensym ()
+              val tva = gensym ()
+              val (constrs', env'') = genCon (f, constrs, insert (f, tvf, env'))
+              val (constrs'', env''') = genCon (a, constrs', insert (a, tva, env''))
+           in
+              (ConstrSet.add (constrs'',
+                              {lhs = TVar tvf, rhs = TArrow (TVar tva, TVar tvar)}),
+               env''')
+           end
+
     end
 end
 
