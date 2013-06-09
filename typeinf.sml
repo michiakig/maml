@@ -2,61 +2,7 @@ structure TypeInf =
 struct
 
 structure T = Type
-
-datatype ast = Num of int * int
-             | Bool of int * bool
-             | Succ of int * ast
-             | Pred of int * ast
-             | IsZero of int * ast
-             | If of int * ast * ast * ast
-             | App of int * ast * ast
-             (* functions need two ids, one for the bound var,
-              * one for the fun expr itself *)
-             | Fun of int * int * string * ast
-             | Id of int * string
-
-fun findByid (n as Num (id, _), id') = if id = id' then SOME n else NONE
-  | findByid (n as Bool (id, _), id') = if id = id' then SOME n else NONE
-  | findByid (n as Succ (id, _), id') = if id = id' then SOME n else NONE
-  | findByid (n as Pred (id, _), id') = if id = id' then SOME n else NONE
-  | findByid (n as IsZero (id, _), id') = if id = id' then SOME n else NONE
-  | findByid (n as If (id, e1, e2, e3), id') =
-    if id = id'
-       then SOME n
-    else (case findByid (e1, id') of
-              SOME n => SOME n
-            | NONE => case findByid (e2, id') of
-                          SOME n => SOME n
-                        | NONE => case findByid (e3, id') of
-                                      SOME n => SOME n
-                                    | NONE => NONE)
-  | findByid (n as App (id, e1, e2), id') =
-    if id = id'
-       then SOME n
-    else (case findByid (e1, id') of
-              SOME n => SOME n
-            | NONE => case findByid (e2, id') of
-                          SOME n => SOME n
-                        | NONE => NONE)
-  | findByid (n as Fun (b, f, v, e), id') =
-    if id' = b
-       then SOME (Id (b, v))
-    else if id' = f
-            then SOME n
-         else (case findByid (e, id') of
-                   SOME n => SOME n
-                 | NONE => NONE)
-  | findByid (n as Id (id, _), id') = if id = id' then SOME n else NONE
-
-fun getId (Num (id, _))       = id
-  | getId (Bool (id, _))      = id
-  | getId (Succ (id, _))      = id
-  | getId (Pred (id, _))      = id
-  | getId (IsZero (id, _))    = id
-  | getId (If (id, _, _, _))  = id
-  | getId (App (id, _, _))    = id
-  | getId (Fun (_, id, _, _)) = id
-  | getId (Id (id, _))        = id
+structure A = Syntax.Abstract
 
 (* 1-1 mapping between ast ids (ints) and type vars (strings) *)
 structure Env = BiMapFn(
@@ -83,30 +29,11 @@ structure ConstrSet = BinarySetFn(
                | ord => ord
    end)
 
-   fun showAst (Bool (id, b)) = "Bool " ^ Int.toString id ^ "," ^ Bool.toString b
-     | showAst (Num (id, n)) = "Num " ^ Int.toString id ^ "," ^ Int.toString n
-     | showAst (Succ (id, e)) = "Succ (" ^ Int.toString id ^ "," ^ showAst e ^ ")"
-     | showAst (Pred (id, e)) = "Pred (" ^ Int.toString id ^ "," ^ showAst e ^ ")"
-     | showAst (IsZero (id, e)) = "IsZero (" ^ Int.toString id ^ "," ^ showAst e ^ ")"
-     | showAst (If (id, e1, e2, e3)) =
-       "If (" ^ Int.toString id ^ ","
-       ^ showAst e1 ^ "," ^ showAst e2 ^ "," ^ showAst e3 ^ ")"
-     | showAst (App (id, e1, e2)) = "App (" ^ Int.toString id ^ "," ^ showAst e1 ^ ","
-                                                   ^ showAst e2 ^ ")"
-     | showAst (Fun (id1, id2, x, e)) =
-       "Fun (" ^ Int.toString id1 ^ "," ^ Int.toString id2 ^
-       "," ^ x ^ "," ^ showAst e ^ ")"
-     | showAst (Id (id, x)) = "Id (" ^ Int.toString id ^ "," ^ x ^ ")"
 
    structure ShowString =
       struct
          type t = string
          val show = Show.string
-      end
-   structure ShowAst =
-      struct
-         type t = ast
-         val show = showAst
       end
 
    fun showConstr ({lhs, rhs} : constraint) =
@@ -132,18 +59,18 @@ end
 local
    (* lookup an ast node in the env, return its tyvar, or generate a fresh one *)
    fun lookup (env, ast) =
-       case Env.findV (env, getId ast) of
+       case Env.findV (env, A.getId ast) of
            SOME tvar => (tvar, env)
          | NONE =>
            let
               val tvar = gensym ()
            in
-              (tvar, Env.insert (env, tvar, getId ast))
+              (tvar, Env.insert (env, tvar, A.getId ast))
            end
 in
 
 type env = Env.map
-val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
+val rec genCon : A.t * ConstrSet.set * env -> ConstrSet.set * env =
  fn (e, constrs, env) =>
     let
        val (tvar, env') = lookup (env, e)
@@ -162,17 +89,17 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
     in
        case e of
 
-           (Bool _) => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.Bool}), env')
+           (A.Bool _) => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.Bool}), env')
 
-         | (Num _) => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.Num}), env')
+         | (A.Num _) => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.Num}), env')
 
-         | Succ (_, e1) => builtin (e, e1, T.Num, T.Num, constrs, env')
+         | A.Succ (_, e1) => builtin (e, e1, T.Num, T.Num, constrs, env')
 
-         | Pred (_, e1) => builtin (e, e1, T.Num, T.Num, constrs, env')
+         | A.Pred (_, e1) => builtin (e, e1, T.Num, T.Num, constrs, env')
 
-         | IsZero (_, e1) => builtin (e, e1, T.Num, T.Bool, constrs, env')
+         | A.IsZero (_, e1) => builtin (e, e1, T.Num, T.Bool, constrs, env')
 
-         | If (_, e1, e2, e3) =>
+         | A.If (_, e1, e2, e3) =>
            let
               fun f (x, (cs, env)) = genCon (x, cs, env)
               val (constrs', env'') = foldl f (constrs, env') [e1, e2, e3]
@@ -189,18 +116,18 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
               (ConstrSet.addList (constrs', constrs''), env''''')
            end
 
-         | Fun (boundid, _, var, body) =>
+         | A.Fun (boundid, _, var, body) =>
            let
               val (tvbody, env'') = lookup (env', body)
-              val (tvid, env''') = lookup (env'', Id (boundid, var))
+              val (tvid, env''') = lookup (env'', A.Id (boundid, var))
               val (constrs', env'''') = genCon (body, constrs, env''')
            in
               (ConstrSet.add (constrs', {lhs = T.Var tvar, rhs = T.Arrow (T.Var tvid, T.Var tvbody)}), env'''')
            end
 
-         | Id (_, name) => (constrs, env')
+         | A.Id (_, name) => (constrs, env')
 
-         | App (_, f, a) =>
+         | A.App (_, f, a) =>
            let
               val (tvf, env'') = lookup (env', f)
               val (tva, env''') = lookup (env'', a)
@@ -282,14 +209,14 @@ fun unify (constrs : ConstrSet.set) =
     end
 
 
-fun typeof (e : ast) : T.t =
+fun typeof (e : A.t) : T.t =
     (reset ();
      let
         val (constraints, env) = genCon (e, ConstrSet.empty, Env.empty)
         val substitution = unify constraints
      in
         T.normalize (Option.valOf (StringMap.find (substitution,
-                                      Option.valOf (Env.findV (env, getId e)))))
+                                      Option.valOf (Env.findV (env, A.getId e)))))
      end)
 
 end

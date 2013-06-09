@@ -2,14 +2,15 @@ structure TypeInfTests =
 struct
 
 structure T = Type
-structure S = Syntax
+structure S = Syntax.Concrete
+structure A = Syntax.Abstract
 
 val typ = {show = T.show}
-val ast = {show = TypeInf.showAst}
+val ast = {show = A.show}
 
 local
    fun fst (a, _) = a
-   val t = TypeInf.typeof o (S.makeAst S.Env.empty)
+   val t = TypeInf.typeof o (A.makeAst A.Env.empty)
 in
 val typeof = Test.group ("typeof", Test.polyAssertEq typ,
 [
@@ -35,12 +36,12 @@ val typeof = Test.group ("typeof", Test.polyAssertEq typ,
 ])
 
 (* mostly testing to make sure bound vars get the correct ids *)
-val m = fn e => (S.reset (); S.makeAst S.Env.empty e)
+val m = fn e => (A.reset (); A.makeAst A.Env.empty e)
 val makeAst = (Test.group ("makeAst", Test.polyAssertEq ast,
 [
-  {expected = TypeInf.Num (0, 1), actual = m (S.Num 1)}
- ,{expected = TypeInf.Fun (0, 1, "x", TypeInf.Id (0, "x")), actual = m (S.Fun ("x", S.Id "x"))}
- ,{expected = TypeInf.Fun (0, 5, "x", TypeInf.If (1, TypeInf.Id (0, "x"), TypeInf.Fun (2, 3, "x", TypeInf.Id (2, "x")), TypeInf.Num (4, 0))),
+  {expected = A.Num (0, 1), actual = m (S.Num 1)}
+ ,{expected = A.Fun (0, 1, "x", A.Id (0, "x")), actual = m (S.Fun ("x", S.Id "x"))}
+ ,{expected = A.Fun (0, 5, "x", A.If (1, A.Id (0, "x"), A.Fun (2, 3, "x", A.Id (2, "x")), A.Num (4, 0))),
    actual = m (S.Fun ("x", S.If (S.Id "x", S.Fun ("x", S.Id "x"), S.Num 0)))}
 ]))
 
