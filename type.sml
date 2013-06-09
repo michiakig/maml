@@ -45,15 +45,14 @@ fun showArrowTyp (t1, t2) =
        val s1 = case t1 of
                     Arrow _ => "(" ^ show t1 ^ ")"
                   | _ => show t1
-       val s2 = case t2 of
-                    Arrow _ => "(" ^ show t2 ^ ")"
-                  | _ => show t2
+       (* don't need to wrap result type, -> is left assoc *)
+       val s2 = show t2
     in
        s1 ^ " -> " ^ s2
     end
 and show Num              = "num"
   | show Bool             = "bool"
-  | show (Var s)          = "'" ^ s
+  | show (Var s)          = s
   | show (Arrow (t1, t2)) = showArrowTyp (t1, t2)
   | show (List t)         = "[" ^ show t ^ "]"
 

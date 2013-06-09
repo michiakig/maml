@@ -40,6 +40,29 @@ val typeof = Test.group ("typeof", Test.polyAssertEq typ,
  ,{expected = T.Bool, actual = t (S.IsNil (S.Cons (S.Num 0, S.Nil)))}
  ,{expected = T.Arrow (T.Var "a", T.List (T.Var "a")),
    actual = t (S.Fun ("x", S.Cons (S.Id "x", S.Nil)))}
+
+ (* map : (a -> b) -> [a] -> [b] *)
+ ,{expected = T.Arrow (T.Arrow (T.Var "a", T.Var "b"), T.Arrow (T.List (T.Var "a"), T.List (T.Var "b"))),
+   actual= t (S.Rec ("map",
+                     S.Fun ("f",
+                            S.Fun ("l",
+                                   S.If (S.IsNil (S.Id "l"),
+                                         S.Nil,
+                                         (S.Cons (S.App (S.Id "f", (S.Hd (S.Id "l"))),
+                                                  S.App (S.App (S.Id "map", S.Id "f"),
+                                                         S.Tl (S.Id "l")))))))))
+(* reduce, fails to typecheck *)
+(* Rec ("reduce", *)
+(*              Fun ("f", *)
+(*                   Fun ("acc", *)
+(*                        Fun ("l", *)
+(*                             If (IsNil (Id "l"), *)
+(*                                 Id "acc", *)
+(*                                 App (App (App (Id "reduce", Id "f"), *)
+(*                                           App (App (Id "f", Hd (Id "l")), Id "acc")), *)
+(*                                      Tl (Id "l"))))))) *)
+
+}
 ])
 
 (* mostly testing to make sure bound vars get the correct ids *)
@@ -61,10 +84,19 @@ val occurs = (Test.group ("occurs", Test.polyAssertEq {show = Show.bool},
 , {expected = true, actual = oc {lhs = T.Var "x", rhs = T.Arrow (T.Num, T.Var "x")}}
 ]))
 
+val findById = (Test.group ("findById", Test.polyAssertEq {show = Show.option A.show},
+[
+  {expected = SOME (A.Num (0, 1)), actual = A.findById (A.Num (0, 1), 0)}
+ ,{expected = NONE,                actual = A.findById (A.Num (0, 1), 1)}
+ ,{expected = SOME (A.Num (0, 1)), actual = A.findById (A.Pred (1, A.Num (0, 1)), 0)}
+ ,{expected = SOME (A.Num (0, 1)), actual = A.findById (A.Succ (1, A.Num (0, 1)), 0)}
+ ,{expected = SOME (A.Num (0, 1)), actual = A.findById (A.IsZero (1, A.Num (0, 1)), 0)}
+]))
+
 end
 
 fun main _ = (
-Test.runTestSuite (true, Test.concat [typeof, makeAst, occurs]);
+Test.runTestSuite (true, Test.concat [typeof, makeAst, occurs, findById]);
 OS.Process.success)
 
 end

@@ -17,6 +17,7 @@ structure Concrete = struct
               | IsNil of t
               | Hd of t
               | Tl of t
+              | Rec of string * t
 end
 
 structure Abstract = struct
@@ -39,6 +40,8 @@ structure Abstract = struct
               | IsNil of int * t
               | Hd of int * t
               | Tl of int * t
+              (* like functions, rec needs two ids *)
+              | Rec of int * int * string * t
 
    (* get this ast node's id *)
    fun getId (Num (id, _))       = id
@@ -55,6 +58,61 @@ structure Abstract = struct
      | getId (IsNil (id, _))     = id
      | getId (Hd (id, _))        = id
      | getId (Tl (id, _))        = id
+     | getId (Rec (_, id, _, _)) = id
+
+   (* given an ast node and an id, find the node in this tree with that id *)
+   fun findById (n as Num (id, _), id') = if id = id' then SOME n else NONE
+     | findById (n as Bool (id, _), id') = if id = id' then SOME n else NONE
+     | findById (n as Succ (id, e), id') = if id = id' then SOME n else findById (e, id')
+     | findById (n as Pred (id, e), id') = if id = id' then SOME n else findById (e, id')
+     | findById (n as IsZero (id, e), id') = if id = id' then SOME n else findById (e, id')
+     | findById (n as If (id, e1, e2, e3), id') =
+       if id = id'
+          then SOME n
+       else (case findById (e1, id') of
+                 SOME n => SOME n
+               | NONE => case findById (e2, id') of
+                             SOME n => SOME n
+                           | NONE => case findById (e3, id') of
+                                         SOME n => SOME n
+                                       | NONE => NONE)
+     | findById (n as App (id, e1, e2), id') =
+       if id = id'
+          then SOME n
+       else (case findById (e1, id') of
+                 SOME n => SOME n
+               | NONE => case findById (e2, id') of
+                             SOME n => SOME n
+                           | NONE => NONE)
+     | findById (n as Fun (b, f, v, e), id') =
+       if id' = b
+          then SOME (Id (b, v))
+       else if id' = f
+               then SOME n
+            else (case findById (e, id') of
+                      SOME n => SOME n
+                    | NONE => NONE)
+     | findById (n as Rec (b, f, v, e), id') =
+       if id' = b
+          then SOME (Id (b, v))
+       else if id' = f
+               then SOME n
+            else (case findById (e, id') of
+                      SOME n => SOME n
+                    | NONE => NONE)
+     | findById (n as Id (id, _), id') = if id = id' then SOME n else NONE
+     | findById (n as Cons (id, e1, e2), id') =
+       if id = id'
+          then SOME n
+       else (case findById (e1, id') of
+                 SOME n => SOME n
+               | NONE => case findById (e2, id') of
+                             SOME n => SOME n
+                           | NONE => NONE)
+     | findById (n as Nil id, id') = if id = id' then SOME n else NONE
+     | findById (n as IsNil (id, e), id') = if id = id' then SOME n else findById (e, id')
+     | findById (n as Hd (id, e), id') = if id = id' then SOME n else findById (e, id')
+     | findById (n as Tl (id, e), id') = if id = id' then SOME n else findById (e, id')
 
    fun show (Bool (id, b)) = "Bool " ^ Int.toString id ^ "," ^ Bool.toString b
      | show (Num (id, n)) = "Num " ^ Int.toString id ^ "," ^ Int.toString n
@@ -75,6 +133,9 @@ structure Abstract = struct
      | show (IsNil (id, e)) = "IsNil (" ^ Int.toString id ^ "," ^ show e ^ ")"
      | show (Hd (id, e)) = "Hd (" ^ Int.toString id ^ "," ^ show e ^ ")"
      | show (Tl (id, e)) = "Tl (" ^ Int.toString id ^ "," ^ show e ^ ")"
+     | show (Rec (id1, id2, x, e)) =
+       "Rec (" ^ Int.toString id1 ^ "," ^ Int.toString id2 ^
+       "," ^ x ^ "," ^ show e ^ ")"
 
    local
       val id = ref 0
@@ -124,6 +185,14 @@ structure Abstract = struct
                 | C.IsNil e => IsNil (newId (), makeAst' (env, e))
                 | C.Hd e => Hd (newId (), makeAst' (env, e))
                 | C.Tl e => Tl (newId (), makeAst' (env, e))
+                | C.Rec (x, e1) => (* same as Fun *)
+                  let
+                     val id = newId ()
+                     val e1' = makeAst' (Env.insert (env, x, id), e1)
+                  in
+                     Rec (id, newId (), x, e1')
+                  end
+
        in
           makeAst' (Env.empty, e)
        end

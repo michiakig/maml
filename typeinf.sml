@@ -124,6 +124,15 @@ val rec genCon : A.t * ConstrSet.set * env -> ConstrSet.set * env =
               (ConstrSet.add (constrs', {lhs = T.Var tvar, rhs = T.Arrow (T.Var tvid, T.Var tvbody)}), env'''')
            end
 
+         | A.Rec (boundid, _, var, e1) =>
+           let
+              val (tve, env'') = lookup (env', e1)
+              val (tvid, env''') = lookup (env'', A.Id (boundid, var))
+              val (constrs', env'''') = genCon (e1, constrs, env''')
+           in
+              (ConstrSet.addList (constrs', [{lhs = T.Var tvar, rhs = T.Var tve}, {lhs = T.Var tvid, rhs = T.Var tve}]), env'''')
+           end
+
          | A.Id (_, name) => (constrs, env')
 
          | A.App (_, f, a) =>
@@ -245,6 +254,28 @@ fun occurs ({lhs, rhs} : constraint) : bool =
          | (ty, T.Var tv) => occurs' (tv, ty)
          | _ => false
     end
+
+fun pretty ({lhs, rhs} : constraint, env, ast) : string =
+    let
+       fun showTyp T.Num = "num"
+         | showTyp T.Bool = "bool"
+         | showTyp (T.Arrow (t1, t2)) = "(" ^ showTyp t1 ^ ") -> (" ^ showTyp t2 ^ ")"
+         | showTyp (T.List t) = "[" ^ showTyp t ^ "]"
+         | showTyp (T.Var tv) =
+           (* lookup ty vars in env, replace with ast if possible *)
+           (case Env.findK (env, tv) of
+                SOME id => (case A.findById (ast, id) of
+                                SOME n => "{(" ^ tv ^ ") " ^ A.show n ^ "}"
+                              | NONE => "?" ^ tv)
+              | NONE => tv)
+    in
+       showTyp lhs ^ " === " ^ showTyp rhs
+    end
+
+fun printConstraint (c, env, ast) = print (pretty (c, env, ast) ^ "\n")
+
+fun printConstraints (cs, env, ast) =
+    List.app (fn c => printConstraint (c, env, ast)) (ConstrSet.listItems cs)
 
 fun unify (constrs : ConstrSet.set) =
     let
