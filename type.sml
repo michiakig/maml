@@ -4,6 +4,7 @@ datatype t = Num
            | Bool
            | Arrow of t * t
            | Var of string
+           | List of t
 val compare : t * t -> order
 val show : t -> string
 val normalize : t -> t
@@ -14,22 +15,30 @@ datatype t = Num
            | Bool
            | Arrow of t * t
            | Var of string
+           | List of t
 
 (* boilerplate comparison stuff *)
-fun compare (Num    , Num)    = EQUAL
-  | compare (Bool   , Bool)   = EQUAL
-  | compare (Var s  , Var s') = String.compare (s, s')
-  | compare (Num    , _)       = GREATER
-  | compare (Bool   , Num)    = LESS
-  | compare (Bool   , _)       = GREATER
-  | compare (Var _  , _)       = LESS
+fun compare (Num    , Num)  = EQUAL
+  | compare (Num    , _)    = GREATER
+
+  | compare (Bool   , Bool) = EQUAL
+  | compare (Bool   , Num)  = LESS
+  | compare (Bool   , _)    = GREATER
+
   | compare (Arrow (t1 , t2), Arrow (t1', t2')) =
     (case compare (t1, t1') of
         EQUAL => compare (t2', t2')
-      | ord => ord)
+      | ord   => ord)
   | compare (Arrow _, Num)    = LESS
   | compare (Arrow _, Bool)   = LESS
-  | compare (Arrow _, _)       = GREATER
+  | compare (Arrow _, _)      = GREATER
+
+  | compare (Var s  , Var s') = String.compare (s, s')
+  | compare (Var _  , List _) = GREATER
+  | compare (Var _  , _)      = LESS
+
+  | compare (List t, List t') = compare (t, t')
+  | compare (List _, _)       = LESS
 
 fun showArrowTyp (t1, t2) =
     let
@@ -46,6 +55,7 @@ and show Num              = "num"
   | show Bool             = "bool"
   | show (Var s)          = "'" ^ s
   | show (Arrow (t1, t2)) = showArrowTyp (t1, t2)
+  | show (List t)         = "[" ^ show t ^ "]"
 
 fun normalize t =
     let
@@ -79,6 +89,12 @@ fun normalize t =
               val (vars'', t2') = normalize' (vars', t2)
            in
               (vars'', Arrow (t1', t2'))
+           end
+         | normalize' (vars, List t) =
+           let
+              val (vars', t') = (normalize' (vars, t))
+           in
+              (vars', List t')
            end
     in
        #2 (normalize' (StringMap.empty, t))

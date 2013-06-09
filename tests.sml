@@ -33,6 +33,13 @@ val typeof = Test.group ("typeof", Test.polyAssertEq typ,
 
  ,{expected = T.Arrow (T.Var "a", T.Arrow (T.Var "b", T.Var "b")),
    actual = t (S.Fun ("x", S.Fun ("y", S.Id "y")))}
+
+ ,{expected = T.List T.Num, actual = t (S.Cons (S.Num 0, S.Nil))}
+ ,{expected = T.List T.Num, actual = t (S.Tl (S.Cons (S.Num 0, S.Nil)))}
+ ,{expected = T.Num, actual = t (S.Hd (S.Cons (S.Num 0, S.Nil)))}
+ ,{expected = T.Bool, actual = t (S.IsNil (S.Cons (S.Num 0, S.Nil)))}
+ ,{expected = T.Arrow (T.Var "a", T.List (T.Var "a")),
+   actual = t (S.Fun ("x", S.Cons (S.Id "x", S.Nil)))}
 ])
 
 (* mostly testing to make sure bound vars get the correct ids *)

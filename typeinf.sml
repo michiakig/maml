@@ -139,6 +139,47 @@ val rec genCon : A.t * ConstrSet.set * env -> ConstrSet.set * env =
                env''''')
            end
 
+         | A.Cons (_, e1, e2) =>
+           let
+              val (tvelem, env'') = lookup (env', e1)
+              val (tvlist, env''') = lookup (env'', e2)
+              val (constrs', env'''') = genCon (e1, constrs, env''')
+              val (constrs'', env''''') = genCon (e1, constrs', env'''')
+           in
+              (ConstrSet.addList (constrs'',
+                                  [{lhs = T.Var tvar, rhs = T.List (T.Var tvelem)},
+                                   {lhs = T.Var tvlist, rhs = T.List (T.Var tvelem)}]),
+               env''''')
+           end
+
+         | A.IsNil (_, e1) => builtin (e, e1, T.List (T.Var (gensym ())), T.Bool, constrs, env')
+
+         | A.Hd (_, e1) =>
+           let
+              val (tv, env'') = lookup (env', e1)
+              val tvelem = gensym ()
+              val (constrs', env''') = genCon (e1, constrs, env'')
+           in
+              (ConstrSet.addList (constrs',
+                                  [{lhs = T.Var tvar, rhs = T.Var tvelem},
+                                   {lhs = T.Var tv, rhs = T.List (T.Var tvelem)}]),
+               env''')
+           end
+
+         | A.Tl (_, e1) =>
+           let
+              val (tv, env'') = lookup (env', e1)
+              val tvelem = gensym ()
+              val (constrs', env''') = genCon (e1, constrs, env'')
+           in
+              (ConstrSet.addList (constrs',
+                                  [{lhs = T.Var tv, rhs = T.List (T.Var tvelem)},
+                                   {lhs = T.Var tvar, rhs = T.List (T.Var tvelem)}]),
+               env''')
+           end
+
+         | A.Nil _ => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.List (T.Var (gensym ()))}), env')
+
     end
 end
 
@@ -153,6 +194,7 @@ fun replace (_, _, T.Bool)            = T.Bool
   | replace (tv, typ, t as T.Var tv') = if tv = tv' then typ else t
   | replace (tv, typ, T.Arrow (d, r)) =
     T.Arrow (replace (tv, typ, d), replace (tv, typ, r))
+  | replace (tv, typ, T.List t)       = T.List (replace (tv, typ, t))
 
 (* apply a substitution to a single type *)
 fun substitute s T.Bool           = T.Bool
@@ -161,6 +203,7 @@ fun substitute s T.Bool           = T.Bool
                                       SOME t' => t'
                                     | NONE    => t)
   | substitute s (T.Arrow (d, r)) = T.Arrow (substitute s d, substitute s r)
+  | substitute s (T.List t)       = T.List (substitute s t)
 
 (* replace tv with typ in a substitution *)
 fun extend (tv : string, typ : T.t, s : T.t StringMap.map) : T.t StringMap.map =
@@ -202,6 +245,8 @@ fun unify (constrs : ConstrSet.set) =
              | (T.Bool, T.Bool) => unify' (stack, acc)
 
              | (T.Num, T.Num) => unify' (stack, acc)
+
+             | (T.List t, T.List t') => unify' ({lhs = t, rhs = t'} :: stack, acc)
 
              | _ => raise TypeError
     in
