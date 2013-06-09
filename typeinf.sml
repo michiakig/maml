@@ -108,9 +108,8 @@ val rec genCon : A.t * ConstrSet.set * env -> ConstrSet.set * env =
               val (tv3, env''''') = lookup (env'''', e3)
               val constrs'' = [
                  {lhs = T.Var tv1, rhs = T.Bool},
-                 {lhs = T.Var tv2, rhs = T.Var tv3},
-                 {lhs = T.Var tv3, rhs = T.Var tv2},
-                 {lhs = T.Var tvar, rhs = T.Var tv3}
+                 {lhs = T.Var tv2, rhs = T.Var tvar},
+                 {lhs = T.Var tv3, rhs = T.Var tvar}
               ]
            in
               (ConstrSet.addList (constrs', constrs''), env''''')
