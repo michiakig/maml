@@ -7,7 +7,6 @@ structure A = Syntax.Abstract
 
 val typ = {show = T.show}
 val ast = {show = A.show}
-val optionAst = {show = Show.option A.show}
 
 local
    fun fst (a, _) = a
@@ -46,19 +45,10 @@ val makeAst = (Test.group ("makeAst", Test.polyAssertEq ast,
    actual = m (S.Fun ("x", S.If (S.Id "x", S.Fun ("x", S.Id "x"), S.Num 0)))}
 ]))
 
-val findById = (Test.group ("findById", Test.polyAssertEq optionAst,
-[
-  {expected = SOME (A.Num (0, 1)), actual = A.findById (A.Num (0, 1), 0)}
- ,{expected = NONE, actual = A.findById (A.Num (0, 1), 1)}
- ,{expected = SOME (A.Num (0, 1)), actual = A.findById (A.Pred (1, A.Num (0, 1)), 0)}
- ,{expected = SOME (A.Num (0, 1)), actual = A.findById (A.Succ (1, A.Num (0, 1)), 0)}
- ,{expected = SOME (A.Num (0, 1)), actual = A.findById (A.IsZero (1, A.Num (0, 1)), 0)}
-]))
-
 end
 
 fun main _ = (
-Test.runTestSuite (true, Test.concat [typeof, makeAst, findById]);
+Test.runTestSuite (true, Test.concat [typeof, makeAst]);
 OS.Process.success)
 
 end

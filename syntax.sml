@@ -30,40 +30,6 @@ structure Abstract = struct
               | Fun of int * int * string * t
               | Id of int * string
 
-   (* given an ast node and an id, find the node in this tree with that id *)
-   fun findById (n as Num (id, _), id') = if id = id' then SOME n else NONE
-     | findById (n as Bool (id, _), id') = if id = id' then SOME n else NONE
-     | findById (n as Succ (id, e), id') = if id = id' then SOME n else findById (e, id')
-     | findById (n as Pred (id, e), id') = if id = id' then SOME n else findById (e, id')
-     | findById (n as IsZero (id, e), id') = if id = id' then SOME n else findById (e, id')
-     | findById (n as If (id, e1, e2, e3), id') =
-       if id = id'
-       then SOME n
-       else (case findById (e1, id') of
-                 SOME n => SOME n
-               | NONE => case findById (e2, id') of
-                             SOME n => SOME n
-                           | NONE => case findById (e3, id') of
-                                         SOME n => SOME n
-                                       | NONE => NONE)
-     | findById (n as App (id, e1, e2), id') =
-       if id = id'
-       then SOME n
-       else (case findById (e1, id') of
-                 SOME n => SOME n
-               | NONE => case findById (e2, id') of
-                             SOME n => SOME n
-                           | NONE => NONE)
-     | findById (n as Fun (b, f, v, e), id') =
-       if id' = b
-       then SOME (Id (b, v))
-       else if id' = f
-       then SOME n
-       else (case findById (e, id') of
-                 SOME n => SOME n
-               | NONE => NONE)
-     | findById (n as Id (id, _), id') = if id = id' then SOME n else NONE
-
    (* get this ast node's id *)
    fun getId (Num (id, _))       = id
      | getId (Bool (id, _))      = id
