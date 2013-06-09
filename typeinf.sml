@@ -121,10 +121,10 @@ structure ConstrSet = BinarySetFn(
 
 local
    val tVarId = ref 0
-   val letters = Array.fromList (String.explode "abcdefghijklmnopqrstuvwxyz")
+   val letters = "abcdefghijklmnopqrstuvwxyz"
 in
    fun gensym () =
-       (Char.toString (Array.sub (letters, !tVarId mod 26)) ^ Int.toString (!tVarId))
+       (Char.toString (String.sub (letters, !tVarId mod 26)) ^ Int.toString (!tVarId))
        before (tVarId := !tVarId + 1)
    fun reset () = tVarId := 0
 end
