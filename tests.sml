@@ -50,19 +50,18 @@ val typeof = Test.group ("typeof", Test.polyAssertEq typ,
                                          S.Nil,
                                          (S.Cons (S.App (S.Id "f", (S.Hd (S.Id "l"))),
                                                   S.App (S.App (S.Id "map", S.Id "f"),
-                                                         S.Tl (S.Id "l")))))))))
-(* reduce, fails to typecheck *)
-(* Rec ("reduce", *)
-(*              Fun ("f", *)
-(*                   Fun ("acc", *)
-(*                        Fun ("l", *)
-(*                             If (IsNil (Id "l"), *)
-(*                                 Id "acc", *)
-(*                                 App (App (App (Id "reduce", Id "f"), *)
-(*                                           App (App (Id "f", Hd (Id "l")), Id "acc")), *)
-(*                                      Tl (Id "l"))))))) *)
+                                                         S.Tl (S.Id "l")))))))))}
 
-}
+ ,{expected = T.Arrow (T.Arrow (T.Var "a", T.Arrow (T.Var "b", T.Var "b")), T.Arrow (T.Var "b", T.Arrow (T.List (T.Var "a"), T.Var "b"))),
+   actual = t (S.Rec ("reduce",
+                      S.Fun ("f",
+                             S.Fun ("acc",
+                                    S.Fun ("l",
+                                           S.If (S.IsNil (S.Id "l"),
+                                                 S.Id "acc",
+                                                 S.App (S.App (S.App (S.Id "reduce", S.Id "f"),
+                                                               S.App (S.App (S.Id "f", S.Hd (S.Id "l")), S.Id "acc")),
+                                                        S.Tl (S.Id "l"))))))))}
 ])
 
 (* mostly testing to make sure bound vars get the correct ids *)

@@ -191,6 +191,31 @@ val rec genCon : A.t * ConstrSet.set * env -> ConstrSet.set * env =
     end
 end
 
+fun prettyPrintConstraint ({lhs, rhs} : constraint, env, ast) : string =
+    let
+       fun showTyp T.Num = "num"
+         | showTyp T.Bool = "bool"
+         | showTyp (T.Arrow (t1, t2)) = "(" ^ showTyp t1 ^ ") -> (" ^ showTyp t2 ^ ")"
+         | showTyp (T.List t) = "[" ^ showTyp t ^ "]"
+         | showTyp (T.Var tv) = tv
+           (* (* lookup ty vars in env, replace with ast if possible *) *)
+           (* (case Env.findK (env, tv) of *)
+           (*      SOME id => (case A.findById (ast, id) of *)
+           (*                      SOME n => "{(" ^ tv ^ ") " ^ A.show n ^ "}" *)
+           (*                    | NONE => "?" ^ tv) *)
+           (*    | NONE => tv) *)
+    in
+       showTyp lhs ^ " === " ^ showTyp rhs
+    end
+
+fun printConstraint (c, env, ast) = print (prettyPrintConstraint (c, env, ast) ^ "\n")
+
+fun printConstraints (cs, env, ast) =
+    List.app (fn c => printConstraint (c, env, ast)) cs
+
+fun printSub s =
+    List.app (fn (k, v) => print (k ^ ":=" ^ T.show v ^ "\n")) (StringMap.listItemsi s)
+
 exception NotImplemented of string
 exception TypeError
 exception Conflict
@@ -228,6 +253,7 @@ fun extend (tv : string, typ : T.t, s : T.t StringMap.map) : T.t StringMap.map =
 fun substituteInC s ({lhs, rhs} : constraint) : constraint =
     {lhs = substitute s lhs, rhs = substitute s rhs}
 
+exception VarBoundInSub
 val applyAndExtend : (T.t StringMap.map * constraint list * string * T.t) -> constraint list * T.t StringMap.map =
     fn (sub, stack, tv, typ) =>
        case StringMap.find (sub, tv) of
@@ -235,8 +261,8 @@ val applyAndExtend : (T.t StringMap.map * constraint list * string * T.t) -> con
            NONE => let val sub' = extend (tv, typ, sub)
                    in (map (substituteInC sub') stack, sub')
                    end
-         (* what to do if this is already bound ? *)
-         | SOME _ => raise (NotImplemented "applyAndExtend")
+         (* I think this should never happen... *)
+         | SOME _ => raise VarBoundInSub
 
 exception Occurs
 fun occurs ({lhs, rhs} : constraint) : bool =
@@ -255,42 +281,36 @@ fun occurs ({lhs, rhs} : constraint) : bool =
          | _ => false
     end
 
-fun pretty ({lhs, rhs} : constraint, env, ast) : string =
-    let
-       fun showTyp T.Num = "num"
-         | showTyp T.Bool = "bool"
-         | showTyp (T.Arrow (t1, t2)) = "(" ^ showTyp t1 ^ ") -> (" ^ showTyp t2 ^ ")"
-         | showTyp (T.List t) = "[" ^ showTyp t ^ "]"
-         | showTyp (T.Var tv) =
-           (* lookup ty vars in env, replace with ast if possible *)
-           (case Env.findK (env, tv) of
-                SOME id => (case A.findById (ast, id) of
-                                SOME n => "{(" ^ tv ^ ") " ^ A.show n ^ "}"
-                              | NONE => "?" ^ tv)
-              | NONE => tv)
-    in
-       showTyp lhs ^ " === " ^ showTyp rhs
-    end
 
-fun printConstraint (c, env, ast) = print (pretty (c, env, ast) ^ "\n")
-
-fun printConstraints (cs, env, ast) =
-    List.app (fn c => printConstraint (c, env, ast)) (ConstrSet.listItems cs)
-
-fun unify (constrs : ConstrSet.set) =
+fun unify (ast, env, constrs : ConstrSet.set) =
     let
        fun unify' ([], acc) = acc
          | unify' ((c as {lhs, rhs}) :: stack, acc) =
+           (
+           (*   print "=============================\n" *)
+           (* ; print "popped: " *)
+           (* ; printConstraint (c, env, ast) *)
+           (* ; print "stack: \n" *)
+           (* ; printConstraints (stack, env, ast) *)
+           (* ; print "\nsub: " *)
+           (* ; printSub acc *)
+           (* ; print "\n=============================\n"; *)
            if occurs c
               then raise Occurs
            else
               case (lhs, rhs) of
-                  (T.Var tv, typ) => unify' (applyAndExtend (acc, stack, tv, typ))
+                  (T.Var tv1, t2 as T.Var tv2) =>
+                  if tv1 = tv2
+                     then unify' (stack, acc)
+                  else unify' (applyAndExtend (acc, stack, tv1, t2))
+
+                | (T.Var tv, typ) => unify' (applyAndExtend (acc, stack, tv, typ))
 
                 | (typ, T.Var tv) => unify' (applyAndExtend (acc, stack, tv, typ))
 
                 | (T.Arrow (dom, rng), T.Arrow (dom', rng')) =>
-                  unify' ({lhs = dom, rhs = dom'} :: {lhs = rng, rhs = rng'} :: stack, acc)
+                  unify' ({lhs = dom, rhs = dom'} ::
+                          {lhs = rng, rhs = rng'} :: stack, acc)
 
                 | (T.Bool, T.Bool) => unify' (stack, acc)
 
@@ -298,7 +318,7 @@ fun unify (constrs : ConstrSet.set) =
 
                 | (T.List t, T.List t') => unify' ({lhs = t, rhs = t'} :: stack, acc)
 
-                | _ => raise TypeError
+                | _ => raise TypeError)
     in
        unify' (ConstrSet.listItems constrs, StringMap.empty)
     end
@@ -308,7 +328,7 @@ fun typeof (e : A.t) : T.t =
     (reset ();
      let
         val (constraints, env) = genCon (e, ConstrSet.empty, Env.empty)
-        val substitution = unify constraints
+        val substitution = unify (e, env, constraints)
      in
         T.normalize (Option.valOf (StringMap.find (substitution,
                                       Option.valOf (Env.findV (env, A.getId e)))))
