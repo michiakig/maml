@@ -109,10 +109,21 @@ structure ConstrSet = BinarySetFn(
                | ord => ord
    end)
 
-   fun showTyp TNum              = "num"
-     | showTyp TBool             = "bool"
-     | showTyp (TVar s)          = "'" ^ s
-     | showTyp (TArrow (t1, t2)) = "(" ^ showTyp t1 ^ ") -> (" ^ showTyp t2 ^ ")"
+fun showArrowTyp (t1, t2) =
+    let
+       val s1 = case t1 of
+                    TArrow _ => "(" ^ showTyp t1 ^ ")"
+                  | _ => showTyp t1
+       val s2 = case t2 of
+                    TArrow _ => "(" ^ showTyp t2 ^ ")"
+                  | _ => showTyp t2
+    in
+       s1 ^ " -> " ^ s2
+    end
+and showTyp TNum              = "num"
+  | showTyp TBool             = "bool"
+  | showTyp (TVar s)          = "'" ^ s
+  | showTyp (TArrow (t1, t2)) = showArrowTyp (t1, t2)
 
    fun showAst (Bool (id, b)) = "Bool " ^ Int.toString id ^ "," ^ Bool.toString b
      | showAst (Num (id, n)) = "Num " ^ Int.toString id ^ "," ^ Int.toString n
@@ -312,14 +323,51 @@ fun unify (constrs : ConstrSet.set) =
        unify' (ConstrSet.listItems constrs, StringMap.empty)
     end
 
+fun normalize t =
+    let
+       val idx = ref 0
+       val letters = "abcdefghijklmnopqrstuvwxyz"
+       fun freshVar () =
+           let
+              val i = !idx
+              val var =
+                  if i >= 52
+                     then Char.toString
+                             (String.sub (letters, i mod 52)) ^ Int.toString i
+                  else Char.toString (String.sub (letters, i))
+           in
+              var before (idx := i + 1)
+           end
+       fun normalize' (vars, TBool) = (vars, TBool)
+         | normalize' (vars, TNum) = (vars, TNum)
+         | normalize' (vars, (TVar tv)) =
+           (case StringMap.find (vars, tv) of
+                SOME tv' => (vars, TVar tv')
+              | NONE =>
+                let
+                   val var = freshVar ()
+                in
+                   (StringMap.insert (vars, tv, var), TVar var)
+                end)
+         | normalize' (vars, (TArrow (t1, t2))) =
+           let
+              val (vars', t1') = normalize' (vars, t1)
+              val (vars'', t2') = normalize' (vars', t2)
+           in
+              (vars'', TArrow (t1', t2'))
+           end
+    in
+       #2 (normalize' (StringMap.empty, t))
+    end
+
 fun typeof (e : ast) : typ =
     (reset ();
      let
         val (constraints, env) = genCon (e, ConstrSet.empty, Env.empty)
         val substitution = unify constraints
      in
-        Option.valOf (StringMap.find (substitution,
-                                      Option.valOf (Env.findV (env, getId e))))
+        normalize (Option.valOf (StringMap.find (substitution,
+                                      Option.valOf (Env.findV (env, getId e)))))
      end)
 
 end
