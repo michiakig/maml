@@ -57,12 +57,14 @@ fun findByid (n as Num (id, _), id') = if id = id' then SOME n else NONE
             | NONE => case findByid (e2, id') of
                           SOME n => SOME n
                         | NONE => NONE)
-  | findByid (n as Fun (_, id, _, e), id') =
-    if id = id'
-       then SOME n
-    else (case findByid (e, id') of
-              SOME n => SOME n
-            | NONE => NONE)
+  | findByid (n as Fun (b, f, v, e), id') =
+    if id' = b
+       then SOME (Id (b, v))
+    else if id' = f
+            then SOME n
+         else (case findByid (e, id') of
+                   SOME n => SOME n
+                 | NONE => NONE)
   | findByid (n as Id (id, _), id') = if id = id' then SOME n else NONE
 
 fun getId (Num (id, _))       = id
@@ -158,28 +160,36 @@ in
    fun reset () = tVarId := 0
 end
 
-exception Bound
 local
-   fun lookup (e, env) =
-       case Env.findV (env, getId e) of
+   (* lookup an ast node in the env, return its tyvar, or generate a fresh one *)
+   fun lookup (env, ast) =
+       case Env.findV (env, getId ast) of
            SOME tvar => (tvar, env)
          | NONE =>
            let
               val tvar = gensym ()
            in
-              (tvar, Env.insert (env, tvar, getId e))
+              (tvar, Env.insert (env, tvar, getId ast))
            end
-   fun insert (e, tvar, env) =
-       case Env.findV (env, getId e) of
-           NONE => Env.insert (env, tvar, getId e)
-         | _ => raise Bound
 in
 
 type env = Env.map
 val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
  fn (e, constrs, env) =>
     let
-       val (tvar, env') = lookup (e, env)
+       val (tvar, env') = lookup (env, e)
+
+       fun builtin (self, child, arg, ret, cs, env) =
+           let
+              val (child', env') = lookup (env, child)
+              val (self', env'') = lookup (env', self)
+              val cs' = ConstrSet.addList (cs,
+                                           [{lhs = TVar self', rhs = ret},
+                                            {lhs = TVar child', rhs = arg}])
+           in
+              genCon (child, cs', env'')
+           end
+
     in
        case e of
 
@@ -187,79 +197,50 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
 
          | (Num _) => (ConstrSet.add (constrs, {lhs = TVar tvar, rhs = TNum}), env')
 
-         | Succ (_, e1) =>
-           let
-              val (constrs', env'') = genCon (e1, constrs, env')
-              val child = Option.valOf (Env.findV (env'', getId e1))
-           in
-              (ConstrSet.add (ConstrSet.add (constrs', {lhs = TVar tvar, rhs = TNum}),
-                              {lhs = TVar child, rhs = TNum}),
-               env'')
-           end
+         | Succ (_, e1) => builtin (e, e1, TNum, TNum, constrs, env')
 
-         | Pred (_, e1) => (* identical to Succ case above :( *)
-           let
-              val (constrs', env'') = genCon (e1, constrs, env')
-              val child = Option.valOf (Env.findV (env'', getId e1))
-           in
-              (ConstrSet.add (ConstrSet.add (constrs', {lhs = TVar tvar, rhs = TNum}),
-                              {lhs = TVar child, rhs = TNum}),
-               env'')
-           end
+         | Pred (_, e1) => builtin (e, e1, TNum, TNum, constrs, env')
 
-         | IsZero (_, e1) =>
-           let
-              val (constrs', env'') = genCon (e1, constrs, env')
-              val child = Option.valOf (Env.findV (env'', getId e1))
-           in
-              (ConstrSet.add (ConstrSet.add (constrs', {lhs = TVar tvar, rhs = TBool}),
-                              {lhs = TVar child, rhs = TNum}),
-               env'')
-           end
+         | IsZero (_, e1) => builtin (e, e1, TNum, TBool, constrs, env')
 
          | If (_, e1, e2, e3) =>
            let
-              val tv1 = gensym ()
-              val tv2 = gensym ()
-              val tv3 = gensym ()
-              val (constrs', env'') =
-                  genCon (e1, constrs,
-                          insert (e3, tv3,
-                                  insert (e2, tv2,
-                                          insert (e1, tv1, env'))))
-              val (constrs'', env''') = genCon (e2, constrs', env'')
-              val (constrs''', env'''') = genCon (e3, constrs'', env''')
-              val constrs = [
+              fun f (x, (cs, env)) = genCon (x, cs, env)
+              val (constrs', env'') = foldl f (constrs, env') [e1, e2, e3]
+              val (tv1, env''') = lookup (env'', e1)
+              val (tv2, env'''') = lookup (env''', e2)
+              val (tv3, env''''') = lookup (env'''', e3)
+              val constrs'' = [
                  {lhs = TVar tv1, rhs = TBool},
                  {lhs = TVar tv2, rhs = TVar tv3},
                  {lhs = TVar tv3, rhs = TVar tv2},
                  {lhs = TVar tvar, rhs = TVar tv3}
               ]
            in
-              (ConstrSet.addList (constrs''', constrs), env'''')
+              (ConstrSet.addList (constrs', constrs''), env''''')
            end
 
-         | Fun (boundid, _, _, body) =>
+         | Fun (boundid, _, var, body) =>
            let
-              val tvbody = gensym ()
-              val (constrs', env'') = genCon (body, constrs, insert (body, tvbody, env'))
-              val tvid = Option.valOf (Env.findV (env'', boundid))
+              val (tvbody, env'') = lookup (env', body)
+              val (tvid, env''') = lookup (env'', Id (boundid, var))
+              val (constrs', env'''') = genCon (body, constrs, env''')
            in
-              (ConstrSet.add (constrs', {lhs = TVar tvar, rhs = TArrow (TVar tvid, TVar tvbody)}), env'')
+              (ConstrSet.add (constrs', {lhs = TVar tvar, rhs = TArrow (TVar tvid, TVar tvbody)}), env'''')
            end
 
          | Id (_, name) => (constrs, env')
 
          | App (_, f, a) =>
            let
-              val tvf = gensym ()
-              val tva = gensym ()
-              val (constrs', env'') = genCon (f, constrs, insert (f, tvf, env'))
-              val (constrs'', env''') = genCon (a, constrs', insert (a, tva, env''))
+              val (tvf, env'') = lookup (env', f)
+              val (tva, env''') = lookup (env'', a)
+              val (constrs', env'''') = genCon (f, constrs, env''')
+              val (constrs'', env''''') = genCon (a, constrs', env'''')
            in
               (ConstrSet.add (constrs'',
                               {lhs = TVar tvf, rhs = TArrow (TVar tva, TVar tvar)}),
-               env''')
+               env''''')
            end
 
     end
