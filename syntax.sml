@@ -31,38 +31,38 @@ structure Abstract = struct
               | Id of int * string
 
    (* given an ast node and an id, find the node in this tree with that id *)
-   fun findByid (n as Num (id, _), id') = if id = id' then SOME n else NONE
-     | findByid (n as Bool (id, _), id') = if id = id' then SOME n else NONE
-     | findByid (n as Succ (id, e), id') = if id = id' then SOME n else findByid (e, id')
-     | findByid (n as Pred (id, e), id') = if id = id' then SOME n else findByid (e, id')
-     | findByid (n as IsZero (id, e), id') = if id = id' then SOME n else findByid (e, id')
-     | findByid (n as If (id, e1, e2, e3), id') =
+   fun findById (n as Num (id, _), id') = if id = id' then SOME n else NONE
+     | findById (n as Bool (id, _), id') = if id = id' then SOME n else NONE
+     | findById (n as Succ (id, e), id') = if id = id' then SOME n else findById (e, id')
+     | findById (n as Pred (id, e), id') = if id = id' then SOME n else findById (e, id')
+     | findById (n as IsZero (id, e), id') = if id = id' then SOME n else findById (e, id')
+     | findById (n as If (id, e1, e2, e3), id') =
        if id = id'
        then SOME n
-       else (case findByid (e1, id') of
+       else (case findById (e1, id') of
                  SOME n => SOME n
-               | NONE => case findByid (e2, id') of
+               | NONE => case findById (e2, id') of
                              SOME n => SOME n
-                           | NONE => case findByid (e3, id') of
+                           | NONE => case findById (e3, id') of
                                          SOME n => SOME n
                                        | NONE => NONE)
-     | findByid (n as App (id, e1, e2), id') =
+     | findById (n as App (id, e1, e2), id') =
        if id = id'
        then SOME n
-       else (case findByid (e1, id') of
+       else (case findById (e1, id') of
                  SOME n => SOME n
-               | NONE => case findByid (e2, id') of
+               | NONE => case findById (e2, id') of
                              SOME n => SOME n
                            | NONE => NONE)
-     | findByid (n as Fun (b, f, v, e), id') =
+     | findById (n as Fun (b, f, v, e), id') =
        if id' = b
        then SOME (Id (b, v))
        else if id' = f
        then SOME n
-       else (case findByid (e, id') of
+       else (case findById (e, id') of
                  SOME n => SOME n
                | NONE => NONE)
-     | findByid (n as Id (id, _), id') = if id = id' then SOME n else NONE
+     | findById (n as Id (id, _), id') = if id = id' then SOME n else NONE
 
    (* get this ast node's id *)
    fun getId (Num (id, _))       = id
