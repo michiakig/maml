@@ -52,10 +52,19 @@ val makeAst = (Test.group ("makeAst", Test.polyAssertEq ast,
    actual = m (S.Fun ("x", S.If (S.Id "x", S.Fun ("x", S.Id "x"), S.Num 0)))}
 ]))
 
+val oc = TypeInf.occurs
+val occurs = (Test.group ("occurs", Test.polyAssertEq {show = Show.bool},
+[
+  {expected = false, actual = oc {lhs = T.Var "x", rhs = T.Var "x"}}
+, {expected = true, actual = oc {lhs = T.Var "x", rhs = T.List (T.Var "x")}}
+, {expected = true, actual = oc {lhs = T.List (T.Var "x"), rhs = T.Var "x"}}
+, {expected = true, actual = oc {lhs = T.Var "x", rhs = T.Arrow (T.Num, T.Var "x")}}
+]))
+
 end
 
 fun main _ = (
-Test.runTestSuite (true, Test.concat [typeof, makeAst]);
+Test.runTestSuite (true, Test.concat [typeof, makeAst, occurs]);
 OS.Process.success)
 
 end

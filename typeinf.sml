@@ -230,25 +230,45 @@ val applyAndExtend : (T.t StringMap.map * constraint list * string * T.t) -> con
          (* what to do if this is already bound ? *)
          | SOME _ => raise (NotImplemented "applyAndExtend")
 
+exception Occurs
+fun occurs ({lhs, rhs} : constraint) : bool =
+    let
+       fun occurs' (tv, T.Num) = false
+         | occurs' (tv, T.Bool) = false
+         | occurs' (tv, T.Var tv') = tv = tv'
+         | occurs' (tv, T.List ty) = occurs' (tv, ty)
+         | occurs' (tv, T.Arrow (t1, t2)) = occurs' (tv, t1) orelse occurs' (tv, t2)
+    in
+       case (lhs, rhs) of
+           (* constraint that just relates any two vars is ok *)
+           (T.Var _, T.Var _) => false
+         | (T.Var tv, ty) => occurs' (tv, ty)
+         | (ty, T.Var tv) => occurs' (tv, ty)
+         | _ => false
+    end
+
 fun unify (constrs : ConstrSet.set) =
     let
        fun unify' ([], acc) = acc
-         | unify' ({lhs, rhs} :: stack, acc) =
-           case (lhs, rhs) of
-               (T.Var tv, typ) => unify' (applyAndExtend (acc, stack, tv, typ))
+         | unify' ((c as {lhs, rhs}) :: stack, acc) =
+           if occurs c
+              then raise Occurs
+           else
+              case (lhs, rhs) of
+                  (T.Var tv, typ) => unify' (applyAndExtend (acc, stack, tv, typ))
 
-             | (typ, T.Var tv) => unify' (applyAndExtend (acc, stack, tv, typ))
+                | (typ, T.Var tv) => unify' (applyAndExtend (acc, stack, tv, typ))
 
-             | (T.Arrow (dom, rng), T.Arrow (dom', rng')) =>
-               unify' ({lhs = dom, rhs = dom'} :: {lhs = rng, rhs = rng'} :: stack, acc)
+                | (T.Arrow (dom, rng), T.Arrow (dom', rng')) =>
+                  unify' ({lhs = dom, rhs = dom'} :: {lhs = rng, rhs = rng'} :: stack, acc)
 
-             | (T.Bool, T.Bool) => unify' (stack, acc)
+                | (T.Bool, T.Bool) => unify' (stack, acc)
 
-             | (T.Num, T.Num) => unify' (stack, acc)
+                | (T.Num, T.Num) => unify' (stack, acc)
 
-             | (T.List t, T.List t') => unify' ({lhs = t, rhs = t'} :: stack, acc)
+                | (T.List t, T.List t') => unify' ({lhs = t, rhs = t'} :: stack, acc)
 
-             | _ => raise TypeError
+                | _ => raise TypeError
     in
        unify' (ConstrSet.listItems constrs, StringMap.empty)
     end
