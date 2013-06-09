@@ -33,9 +33,9 @@ structure Abstract = struct
    (* given an ast node and an id, find the node in this tree with that id *)
    fun findByid (n as Num (id, _), id') = if id = id' then SOME n else NONE
      | findByid (n as Bool (id, _), id') = if id = id' then SOME n else NONE
-     | findByid (n as Succ (id, _), id') = if id = id' then SOME n else NONE
-     | findByid (n as Pred (id, _), id') = if id = id' then SOME n else NONE
-     | findByid (n as IsZero (id, _), id') = if id = id' then SOME n else NONE
+     | findByid (n as Succ (id, e), id') = if id = id' then SOME n else findByid (e, id')
+     | findByid (n as Pred (id, e), id') = if id = id' then SOME n else findByid (e, id')
+     | findByid (n as IsZero (id, e), id') = if id = id' then SOME n else findByid (e, id')
      | findByid (n as If (id, e1, e2, e3), id') =
        if id = id'
        then SOME n
