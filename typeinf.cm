@@ -1,10 +1,13 @@
 Library
-    structure TypeInf
+    structure Type
     structure Syntax
+    structure TypeInf
     structure TypeInfTests
 is
     typeinf.sml
+    stringmap.sml
     syntax.sml
+    type.sml
     bimap.sml
     tests.sml
     $/basis.cm

@@ -1,26 +1,7 @@
 structure TypeInf =
 struct
 
-datatype typ = TNum
-             | TBool
-             | TArrow of typ * typ
-             | TVar of string
-
-(* boilerplate comparison stuff *)
-fun typcompare (TNum       , TNum)                   = EQUAL
-  | typcompare (TBool      , TBool)                  = EQUAL
-  | typcompare (TArrow (t1 , t2), TArrow (t1', t2')) =
-    (case typcompare (t1, t1') of
-        EQUAL => typcompare (t2', t2')
-      | ord => ord)
-  | typcompare (TVar s   , TVar s') = String.compare (s, s')
-  | typcompare (TNum     , _)       = GREATER
-  | typcompare (TBool    , TNum)    = LESS
-  | typcompare (TBool    , _)       = GREATER
-  | typcompare (TArrow _ , TNum)    = LESS
-  | typcompare (TArrow _ , TBool)   = LESS
-  | typcompare (TArrow _ , _)       = GREATER
-  | typcompare (TVar _   , _)       = LESS
+structure T = Type
 
 datatype ast = Num of int * int
              | Bool of int * bool
@@ -77,13 +58,6 @@ fun getId (Num (id, _))       = id
   | getId (Fun (_, id, _, _)) = id
   | getId (Id (id, _))        = id
 
-(* substitution, map from typvars (strings) to typ *)
-structure StringMap = BinaryMapFn(
-   struct
-      type ord_key = String.string
-      val compare = String.compare
-   end)
-
 (* 1-1 mapping between ast ids (ints) and type vars (strings) *)
 structure Env = BiMapFn(
    structure Key = struct
@@ -96,7 +70,7 @@ structure Env = BiMapFn(
    end)
 
 (* constraint relates types to types *)
-type constraint = {lhs: typ, rhs: typ}
+type constraint = {lhs: T.t, rhs: T.t}
 
 structure ConstrSet = BinarySetFn(
    struct
@@ -104,26 +78,10 @@ structure ConstrSet = BinarySetFn(
       val compare : constraint * constraint -> order =
           fn ({lhs = lhs , rhs = rhs },
               {lhs = lhs', rhs = rhs'}) =>
-             case typcompare (lhs, lhs') of
-                 EQUAL => typcompare (rhs, rhs')
+             case T.compare (lhs, lhs') of
+                 EQUAL => T.compare (rhs, rhs')
                | ord => ord
    end)
-
-fun showArrowTyp (t1, t2) =
-    let
-       val s1 = case t1 of
-                    TArrow _ => "(" ^ showTyp t1 ^ ")"
-                  | _ => showTyp t1
-       val s2 = case t2 of
-                    TArrow _ => "(" ^ showTyp t2 ^ ")"
-                  | _ => showTyp t2
-    in
-       s1 ^ " -> " ^ s2
-    end
-and showTyp TNum              = "num"
-  | showTyp TBool             = "bool"
-  | showTyp (TVar s)          = "'" ^ s
-  | showTyp (TArrow (t1, t2)) = showArrowTyp (t1, t2)
 
    fun showAst (Bool (id, b)) = "Bool " ^ Int.toString id ^ "," ^ Bool.toString b
      | showAst (Num (id, n)) = "Num " ^ Int.toString id ^ "," ^ Int.toString n
@@ -152,7 +110,7 @@ and showTyp TNum              = "num"
       end
 
    fun showConstr ({lhs, rhs} : constraint) =
-       "{" ^ showTyp lhs ^ "," ^ showTyp rhs ^ "}"
+       "{" ^ T.show lhs ^ "," ^ T.show rhs ^ "}"
 
    structure ShowConstraintSet =
       SetShowFn(structure Set = ConstrSet
@@ -195,8 +153,8 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
               val (child', env') = lookup (env, child)
               val (self', env'') = lookup (env', self)
               val cs' = ConstrSet.addList (cs,
-                                           [{lhs = TVar self', rhs = ret},
-                                            {lhs = TVar child', rhs = arg}])
+                                           [{lhs = T.Var self', rhs = ret},
+                                            {lhs = T.Var child', rhs = arg}])
            in
               genCon (child, cs', env'')
            end
@@ -204,15 +162,15 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
     in
        case e of
 
-           (Bool _) => (ConstrSet.add (constrs, {lhs = TVar tvar, rhs = TBool}), env')
+           (Bool _) => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.Bool}), env')
 
-         | (Num _) => (ConstrSet.add (constrs, {lhs = TVar tvar, rhs = TNum}), env')
+         | (Num _) => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.Num}), env')
 
-         | Succ (_, e1) => builtin (e, e1, TNum, TNum, constrs, env')
+         | Succ (_, e1) => builtin (e, e1, T.Num, T.Num, constrs, env')
 
-         | Pred (_, e1) => builtin (e, e1, TNum, TNum, constrs, env')
+         | Pred (_, e1) => builtin (e, e1, T.Num, T.Num, constrs, env')
 
-         | IsZero (_, e1) => builtin (e, e1, TNum, TBool, constrs, env')
+         | IsZero (_, e1) => builtin (e, e1, T.Num, T.Bool, constrs, env')
 
          | If (_, e1, e2, e3) =>
            let
@@ -222,10 +180,10 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
               val (tv2, env'''') = lookup (env''', e2)
               val (tv3, env''''') = lookup (env'''', e3)
               val constrs'' = [
-                 {lhs = TVar tv1, rhs = TBool},
-                 {lhs = TVar tv2, rhs = TVar tv3},
-                 {lhs = TVar tv3, rhs = TVar tv2},
-                 {lhs = TVar tvar, rhs = TVar tv3}
+                 {lhs = T.Var tv1, rhs = T.Bool},
+                 {lhs = T.Var tv2, rhs = T.Var tv3},
+                 {lhs = T.Var tv3, rhs = T.Var tv2},
+                 {lhs = T.Var tvar, rhs = T.Var tv3}
               ]
            in
               (ConstrSet.addList (constrs', constrs''), env''''')
@@ -237,7 +195,7 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
               val (tvid, env''') = lookup (env'', Id (boundid, var))
               val (constrs', env'''') = genCon (body, constrs, env''')
            in
-              (ConstrSet.add (constrs', {lhs = TVar tvar, rhs = TArrow (TVar tvid, TVar tvbody)}), env'''')
+              (ConstrSet.add (constrs', {lhs = T.Var tvar, rhs = T.Arrow (T.Var tvid, T.Var tvbody)}), env'''')
            end
 
          | Id (_, name) => (constrs, env')
@@ -250,7 +208,7 @@ val rec genCon : ast * ConstrSet.set * env -> ConstrSet.set * env =
               val (constrs'', env''''') = genCon (a, constrs', env'''')
            in
               (ConstrSet.add (constrs'',
-                              {lhs = TVar tvf, rhs = TArrow (TVar tva, TVar tvar)}),
+                              {lhs = T.Var tvf, rhs = T.Arrow (T.Var tva, T.Var tvar)}),
                env''''')
            end
 
@@ -263,27 +221,27 @@ exception Conflict
 exception Assert of string
 
 (* replace tv with typ in a single type *)
-fun replace (_, _, TBool)            = TBool
-  | replace (_, _, TNum)             = TNum
-  | replace (tv, typ, t as TVar tv') = if tv = tv' then typ else t
-  | replace (tv, typ, TArrow (d, r)) =
-    TArrow (replace (tv, typ, d), replace (tv, typ, r))
+fun replace (_, _, T.Bool)            = T.Bool
+  | replace (_, _, T.Num)             = T.Num
+  | replace (tv, typ, t as T.Var tv') = if tv = tv' then typ else t
+  | replace (tv, typ, T.Arrow (d, r)) =
+    T.Arrow (replace (tv, typ, d), replace (tv, typ, r))
 
 (* apply a substitution to a single type *)
-fun substitute s TBool           = TBool
-  | substitute s TNum            = TNum
-  | substitute s (t as TVar tv)  = (case StringMap.find (s, tv) of
+fun substitute s T.Bool           = T.Bool
+  | substitute s T.Num            = T.Num
+  | substitute s (t as T.Var tv)  = (case StringMap.find (s, tv) of
                                       SOME t' => t'
                                     | NONE    => t)
-  | substitute s (TArrow (d, r)) = TArrow (substitute s d, substitute s r)
+  | substitute s (T.Arrow (d, r)) = T.Arrow (substitute s d, substitute s r)
 
 (* replace tv with typ in a substitution *)
-fun extend (tv : string, typ : typ, s : typ StringMap.map) : typ StringMap.map =
+fun extend (tv : string, typ : T.t, s : T.t StringMap.map) : T.t StringMap.map =
     let
        fun f (k, v) =
            if k = tv
               then raise (Assert ("apply2S: bound type var in substitution, " ^
-                          k ^ " bound to " ^ showTyp v))
+                          k ^ " bound to " ^ T.show v))
            else replace (tv, typ, v)
     in
        StringMap.insert (StringMap.mapi f s, tv, typ)
@@ -292,7 +250,7 @@ fun extend (tv : string, typ : typ, s : typ StringMap.map) : typ StringMap.map =
 fun substituteInC s ({lhs, rhs} : constraint) : constraint =
     {lhs = substitute s lhs, rhs = substitute s rhs}
 
-val applyAndExtend : (typ StringMap.map * constraint list * string * typ) -> constraint list * typ StringMap.map =
+val applyAndExtend : (T.t StringMap.map * constraint list * string * T.t) -> constraint list * T.t StringMap.map =
     fn (sub, stack, tv, typ) =>
        case StringMap.find (sub, tv) of
            (* unbound... *)
@@ -307,66 +265,30 @@ fun unify (constrs : ConstrSet.set) =
        fun unify' ([], acc) = acc
          | unify' ({lhs, rhs} :: stack, acc) =
            case (lhs, rhs) of
-               (TVar tv, typ) => unify' (applyAndExtend (acc, stack, tv, typ))
+               (T.Var tv, typ) => unify' (applyAndExtend (acc, stack, tv, typ))
 
-             | (typ, TVar tv) => unify' (applyAndExtend (acc, stack, tv, typ))
+             | (typ, T.Var tv) => unify' (applyAndExtend (acc, stack, tv, typ))
 
-             | (TArrow (dom, rng), TArrow (dom', rng')) =>
+             | (T.Arrow (dom, rng), T.Arrow (dom', rng')) =>
                unify' ({lhs = dom, rhs = dom'} :: {lhs = rng, rhs = rng'} :: stack, acc)
 
-             | (TBool, TBool) => unify' (stack, acc)
+             | (T.Bool, T.Bool) => unify' (stack, acc)
 
-             | (TNum, TNum) => unify' (stack, acc)
+             | (T.Num, T.Num) => unify' (stack, acc)
 
              | _ => raise TypeError
     in
        unify' (ConstrSet.listItems constrs, StringMap.empty)
     end
 
-fun normalize t =
-    let
-       val idx = ref 0
-       val letters = "abcdefghijklmnopqrstuvwxyz"
-       fun freshVar () =
-           let
-              val i = !idx
-              val var =
-                  if i >= 52
-                     then Char.toString
-                             (String.sub (letters, i mod 52)) ^ Int.toString i
-                  else Char.toString (String.sub (letters, i))
-           in
-              var before (idx := i + 1)
-           end
-       fun normalize' (vars, TBool) = (vars, TBool)
-         | normalize' (vars, TNum) = (vars, TNum)
-         | normalize' (vars, (TVar tv)) =
-           (case StringMap.find (vars, tv) of
-                SOME tv' => (vars, TVar tv')
-              | NONE =>
-                let
-                   val var = freshVar ()
-                in
-                   (StringMap.insert (vars, tv, var), TVar var)
-                end)
-         | normalize' (vars, (TArrow (t1, t2))) =
-           let
-              val (vars', t1') = normalize' (vars, t1)
-              val (vars'', t2') = normalize' (vars', t2)
-           in
-              (vars'', TArrow (t1', t2'))
-           end
-    in
-       #2 (normalize' (StringMap.empty, t))
-    end
 
-fun typeof (e : ast) : typ =
+fun typeof (e : ast) : T.t =
     (reset ();
      let
         val (constraints, env) = genCon (e, ConstrSet.empty, Env.empty)
         val substitution = unify constraints
      in
-        normalize (Option.valOf (StringMap.find (substitution,
+        T.normalize (Option.valOf (StringMap.find (substitution,
                                       Option.valOf (Env.findV (env, getId e)))))
      end)
 
