@@ -10,7 +10,7 @@ val ast = {show = A.show}
 
 local
    fun fst (a, _) = a
-   val t = TypeInf.typeof o (A.makeAst A.Env.empty)
+   val t = TypeInf.typeof o A.makeAst
 in
 val typeof = Test.group ("typeof", Test.polyAssertEq typ,
 [
@@ -36,7 +36,7 @@ val typeof = Test.group ("typeof", Test.polyAssertEq typ,
 ])
 
 (* mostly testing to make sure bound vars get the correct ids *)
-val m = fn e => (A.reset (); A.makeAst A.Env.empty e)
+val m = fn e => (A.reset (); A.makeAst e)
 val makeAst = (Test.group ("makeAst", Test.polyAssertEq ast,
 [
   {expected = A.Num (0, 1), actual = m (S.Num 1)}
