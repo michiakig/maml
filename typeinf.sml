@@ -30,12 +30,6 @@ structure ConstrSet = BinarySetFn(
    end)
 
 
-   structure ShowString =
-      struct
-         type t = string
-         val show = Show.string
-      end
-
    fun showConstr ({lhs, rhs} : constraint) =
        "{" ^ T.show lhs ^ "," ^ T.show rhs ^ "}"
 

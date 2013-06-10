@@ -49,9 +49,9 @@ val typeof = Test.group ("typeof", Test.polyAssertEq typ,
                                    S.If (S.IsNil (S.Id "l"),
                                          S.Nil,
                                          (S.Cons (S.App (S.Id "f", (S.Hd (S.Id "l"))),
-                                                  S.App (S.App (S.Id "map", S.Id "f"),
-                                                         S.Tl (S.Id "l")))))))))}
+                                                  S.apply (S.Id "map", [S.Id "f", S.Tl (S.Id "l")]))))))))}
 
+ (* reduce : (a -> b -> b) -> b -> [a] -> b *)
  ,{expected = T.Arrow (T.Arrow (T.Var "a", T.Arrow (T.Var "b", T.Var "b")), T.Arrow (T.Var "b", T.Arrow (T.List (T.Var "a"), T.Var "b"))),
    actual = t (S.Rec ("reduce",
                       S.Fun ("f",
@@ -59,9 +59,15 @@ val typeof = Test.group ("typeof", Test.polyAssertEq typ,
                                     S.Fun ("l",
                                            S.If (S.IsNil (S.Id "l"),
                                                  S.Id "acc",
-                                                 S.App (S.App (S.App (S.Id "reduce", S.Id "f"),
-                                                               S.App (S.App (S.Id "f", S.Hd (S.Id "l")), S.Id "acc")),
-                                                        S.Tl (S.Id "l"))))))))}
+                                                 S.apply (S.Id "reduce", [S.Id "f", S.apply (S.Id "f", [S.Hd (S.Id "l"), S.Id "acc"]), S.Tl (S.Id "l")])))))))}
+ (* filter : (a -> bool) -> [a] -> [a] *)
+ ,{expected = T.Arrow (T.Arrow (T.Var "a", T.Bool), (T.Arrow (T.List (T.Var "a"), T.List (T.Var "a")))),
+   actual = t (S.Rec ("filter",
+                      S.Fun ("f",
+                             S.Fun ("l",
+                                    S.If (S.App (S.Id "f", S.Hd (S.Id "l")),
+                                          S.apply (S.Id "filter", [S.Id "f", S.Tl (S.Id "l")]),
+                                          S.Cons (S.Hd (S.Id "l"), S.apply (S.Id "filter", [S.Id "f", S.Tl (S.Id "l")])))))))}
 ])
 
 (* mostly testing to make sure bound vars get the correct ids *)

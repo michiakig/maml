@@ -18,6 +18,12 @@ structure Concrete = struct
               | Hd of t
               | Tl of t
               | Rec of string * t
+
+   (* given an expr and list of exprs,
+    * returns the App expr representing the curried application of f to args *)
+   fun apply (f, args) =
+       foldl (fn (a, f) => App (f, a)) f args
+
 end
 
 structure Abstract = struct
