@@ -12,5 +12,5 @@ is
     tests.sml
     $/basis.cm
     $/smlnj-lib.cm
-    ../lexluthor/tests/framework.cm
-    ../lexluthor/lib/lib.cm
+    ../tests.sml/framework.cm
+    ../lib.sml/lib.cm
