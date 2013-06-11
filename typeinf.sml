@@ -83,9 +83,9 @@ val rec genCon : A.t * ConstrSet.set * env -> ConstrSet.set * env =
     in
        case e of
 
-           (A.Bool _) => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.Bool}), env')
+           A.Bool _ => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.Bool}), env')
 
-         | (A.Num _) => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.Num}), env')
+         | A.Num _ => (ConstrSet.add (constrs, {lhs = T.Var tvar, rhs = T.Num}), env')
 
          | A.Succ (_, e1) => builtin (e, e1, T.Num, T.Num, constrs, env')
 
