@@ -1,3 +1,4 @@
 test:
-	ml-build typeinf.cm TypeInfTests.main > /dev/null
-	sml @SMLload=typeinf.x86-darwin
+	ml-build sources.cm TypeInfTests.main > /dev/null
+	sml @SMLload=sources.x86-darwin
+
