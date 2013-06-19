@@ -19,6 +19,22 @@ structure Concrete = struct
               | Tl of t
               | Rec of string * t
 
+   fun show (Bool b)          = "Bool " ^ Bool.toString b
+     | show (Num n)           = "Num " ^ Int.toString n
+     | show (Succ e)          = "Succ (" ^ show e ^ ")"
+     | show (Pred e)          = "Pred (" ^ show e ^ ")"
+     | show (IsZero e)        = "IsZero (" ^ show e ^ ")"
+     | show (If (e1, e2, e3)) = "If (" ^ show e1 ^ "," ^ show e2 ^ "," ^ show e3 ^ ")"
+     | show (App (e1, e2))    = "App (" ^ show e1 ^ "," ^ show e2 ^ ")"
+     | show (Fun (x, e))      = "Fun (" ^ x ^ "," ^ show e ^ ")"
+     | show (Id x)            = "Id (" ^ x ^ ")"
+     | show (Cons (e1, e2))   = "Cons (" ^ show e1 ^ "," ^ show e2 ^ ")"
+     | show Nil               = "Nil"
+     | show (IsNil e)         = "IsNil (" ^ show e ^ ")"
+     | show (Hd e)            = "Hd (" ^ show e ^ ")"
+     | show (Tl e)            = "Tl (" ^ show e ^ ")"
+     | show (Rec (x, e))      = "Rec (" ^ x ^ "," ^ show e ^ ")"
+
    (* given an expr and list of exprs,
     * returns the App expr representing the curried application of f to args *)
    fun apply (f, args) =
