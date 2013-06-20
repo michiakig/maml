@@ -22,7 +22,7 @@ struct
              | Lam of string * t
              (* extended lambda *)
              | Let of string * t * t
-             | Letrec of string * t * t (* restrict to one binding in letrec *)
+             | Rec of string * t
              | Bar of t * t
              | Case of string * (pat * t) list
 
@@ -34,7 +34,7 @@ struct
         | show (PApp (mul, e1, e2)) = "(* " ^ show e1 ^ " " ^ show e2 ^ ")"
         | show (PApp (divv, e1, e2)) = "(/ " ^ show e1 ^ " " ^ show e2 ^ ")"
         | show (Let (x, e1, e2)) = "let " ^ x ^ " = " ^ show e1 ^ " in " ^ show e2
-        | show (Letrec (x, e1, e2)) = "letrec " ^ x ^ " = " ^ show e1 ^ " in " ^ show e2
+        | show (Rec (x, e)) = "rec " ^ x ^ "." ^ show e
         | show (Bar (e1, e2)) = show e1 ^ " [] " ^ show e2
         | show (Case (v, ps)) = "case " ^ v ^ " of" ^ (concat (map (fn (p, e) => " | _ => " ^ show e) ps))
         | show (Lam (x, e)) = "λ" ^ x ^ "." ^ show e
@@ -92,6 +92,32 @@ struct
 
 local
    open Expr
+
+   (*
+    * substitute x for y in e
+    *)
+   fun substitute (x, y, v as Var x') = if x = x' then y else v
+     | substitute (x, y, c as Num _) = c
+     | substitute (x, y, App (f, a)) = App (substitute (x, y, f), substitute (x, y, a))
+     | substitute (x, y, Bar (e1, e2)) = Bar (substitute (x, y, e1), substitute (x, y, e2))
+     | substitute (x, y, Case (v, ps)) = Case (v, (map (fn (p, e) => (p, substitute (x, y, e))) ps))
+     | substitute (x, y, PApp (p, e1, e2)) = PApp (p, substitute (x, y, e1), substitute (x, y, e2))
+
+     | substitute (x, y, l as Lam (x', e)) =
+       if x = x'
+          then l
+       else Lam (x', substitute (x, y, e))
+
+     | substitute (x, y, l as Let (x', e1, e2)) =
+       if x = x'
+          then l
+       else Let (x', substitute (x, y, e1), substitute (x, y, e2))
+
+     | substitute (x, y, r as Rec (x', e)) =
+       if x = x'
+          then r
+       else Rec (x', substitute (x, y, e))
+
 in
    fun eval (env, Var v) = lookup (env, v)
      | eval (_, Num n) = Value.Num n
@@ -108,7 +134,7 @@ in
             Value.Closure (x, e, env') => eval (extend (env', x, eval (env, a)), e)
           | _ => raise AppliedNonFunction)
 
-     | eval (env, Letrec _) = raise NotImplemented
+     | eval (env, r as Rec (x, e)) = eval (env, substitute (x, r, e))
      | eval (_, Bar _) = raise NotImplemented
      | eval (_, Case _) = raise NotImplemented
 
