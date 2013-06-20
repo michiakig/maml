@@ -16,10 +16,10 @@ struct
       datatype t =
                Num of int
              | Var of string
-             | App of t * t
+             | App of t * t list
              (* primitive app, allow for two args *)
              | PApp of prim * t * t
-             | Lam of string * t
+             | Lam of string list * t
              (* extended lambda *)
              | Let of string * t * t
              | Rec of string * t
@@ -28,7 +28,7 @@ struct
 
       fun show (Num n) = Int.toString n
         | show (Var x) = x
-        | show (App (e1, e2)) = "(" ^ show e1 ^ " " ^ show e2 ^ ")"
+        | show (App (f, args)) = "(" ^ show f ^ " " ^ String.concatWith " " (map show args) ^ ")"
         | show (PApp (add, e1, e2)) = "(+ " ^ show e1 ^ " " ^ show e2 ^ ")"
         | show (PApp (sub, e1, e2)) = "(- " ^ show e1 ^ " " ^ show e2 ^ ")"
         | show (PApp (mul, e1, e2)) = "(* " ^ show e1 ^ " " ^ show e2 ^ ")"
@@ -37,13 +37,14 @@ struct
         | show (Rec (x, e)) = "rec " ^ x ^ "." ^ show e
         | show (Bar (e1, e2)) = show e1 ^ " [] " ^ show e2
         | show (Case (v, ps)) = "case " ^ v ^ " of" ^ (concat (map (fn (p, e) => " | _ => " ^ show e) ps))
-        | show (Lam (x, e)) = "λ" ^ x ^ "." ^ show e
+        | show (Lam (args, e)) = "λ" ^ String.concatWith " " args ^ "." ^ show e
    end
 
    exception Unbound
    exception AppliedNonFunction
    exception NonNumber
    exception NotImplemented
+   exception IncorrectNumArgs
 
    structure Env = BinaryMapFn(
       struct
@@ -66,7 +67,8 @@ struct
       datatype t =
                Num of int
              | Data of {typ : string, ctor : string, args : t list}
-             | Closure of string * Expr.t * t Env.map
+             | Ctor of {typ : string, name : string, numargs : int}
+             | Closure of string list * Expr.t * t Env.map
 
       fun show (Num n) = Int.toString n
         | show (Data {typ, ctor, args}) =
@@ -83,6 +85,7 @@ struct
                 ctor ^ " " ^ String.concatWith " " (map show' args)
           end
         | show (Closure _) = "#<fn>"
+        | show (Ctor {typ, name, numargs}) = name
 
       fun eq (Num x, Num y) = x = y
         | eq (Data {typ, ctor, args}, Data {typ=typ', ctor=ctor', args=args'}) =
@@ -98,15 +101,15 @@ local
     *)
    fun substitute (x, y, v as Var x') = if x = x' then y else v
      | substitute (x, y, c as Num _) = c
-     | substitute (x, y, App (f, a)) = App (substitute (x, y, f), substitute (x, y, a))
+     | substitute (x, y, App (f, args)) = App (substitute (x, y, f), map (fn a => substitute (x, y, a)) args)
      | substitute (x, y, Bar (e1, e2)) = Bar (substitute (x, y, e1), substitute (x, y, e2))
      | substitute (x, y, Case (v, ps)) = Case (v, (map (fn (p, e) => (p, substitute (x, y, e))) ps))
      | substitute (x, y, PApp (p, e1, e2)) = PApp (p, substitute (x, y, e1), substitute (x, y, e2))
 
-     | substitute (x, y, l as Lam (x', e)) =
-       if x = x'
+     | substitute (x, y, l as Lam (args, e)) =
+       if List.exists (fn x' => x = x') args
           then l
-       else Lam (x', substitute (x, y, e))
+       else Lam (args, substitute (x, y, e))
 
      | substitute (x, y, l as Let (x', e1, e2)) =
        if x = x'
@@ -121,7 +124,7 @@ local
 in
    fun eval (env, Var v) = lookup (env, v)
      | eval (_, Num n) = Value.Num n
-     | eval (env, l as Lam (x, e)) = Value.Closure (x, e, env)
+     | eval (env, l as Lam (args, e)) = Value.Closure (args, e, env)
      | eval (env, l as Let (x, e1, e2)) = eval (extend (env, x, eval (env, e1)), e2)
 
      | eval (env, PApp (p, x, y)) =
@@ -129,9 +132,12 @@ in
             (Value.Num x', Value.Num y') => Value.Num (applyPrim (p, x', y'))
           | _ => raise NonNumber)
 
-     | eval (env, App (f, a)) =
+     | eval (env, App (f, args)) =
        (case eval (env, f) of
-            Value.Closure (x, e, env') => eval (extend (env', x, eval (env, a)), e)
+            Value.Closure (formals, e, env') =>
+            if length args <> length formals
+               then raise IncorrectNumArgs
+            else eval (foldl (fn ((formal, arg), env) => extend (env, formal, arg)) env' (ListPair.zip (formals, map (fn x => eval (env, x)) args)), e)
           | _ => raise AppliedNonFunction)
 
      | eval (env, r as Rec (x, e)) = eval (env, substitute (x, r, e))
