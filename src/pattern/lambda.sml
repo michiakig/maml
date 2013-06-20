@@ -12,6 +12,9 @@ struct
 
    structure Expr =
    struct
+      (* name of type, list of ctors (name of ctor, list of args) *)
+      datatype decl = Data of string * (string * string list) list
+
       (* expressions in the language *)
       datatype t =
                Num of int
@@ -121,28 +124,43 @@ local
           then r
        else Rec (x', substitute (x, y, e))
 
-in
-   fun eval (env, Var v) = lookup (env, v)
-     | eval (_, Num n) = Value.Num n
-     | eval (env, l as Lam (args, e)) = Value.Closure (args, e, env)
-     | eval (env, l as Let (x, e1, e2)) = eval (extend (env, x, eval (env, e1)), e2)
+   fun init ds =
+       let
+          fun ctor typ (name, args) = Value.Ctor {typ=typ, name=name, numargs=length args}
+          fun data (Data (typ, ctors)) = map (ctor typ) ctors
+       in
+          foldl (fn (c as Value.Ctor {name, ...}, acc) => Env.insert (acc, name, c) | _ => Env.empty) Env.empty (List.concat (map data ds))
+       end
 
-     | eval (env, PApp (p, x, y)) =
-       (case (eval (env, x), eval (env, y)) of
+   fun eval' (env, Var v) = lookup (env, v)
+     | eval' (_, Num n) = Value.Num n
+     | eval' (env, l as Lam (args, e)) = Value.Closure (args, e, env)
+     | eval' (env, l as Let (x, e1, e2)) = eval' (extend (env, x, eval' (env, e1)), e2)
+
+     | eval' (env, PApp (p, x, y)) =
+       (case (eval' (env, x), eval' (env, y)) of
             (Value.Num x', Value.Num y') => Value.Num (applyPrim (p, x', y'))
           | _ => raise NonNumber)
 
-     | eval (env, App (f, args)) =
-       (case eval (env, f) of
+     | eval' (env, App (f, args)) =
+       (case eval' (env, f) of
             Value.Closure (formals, e, env') =>
             if length args <> length formals
                then raise IncorrectNumArgs
-            else eval (foldl (fn ((formal, arg), env) => extend (env, formal, arg)) env' (ListPair.zip (formals, map (fn x => eval (env, x)) args)), e)
+            else eval' (foldl (fn ((formal, arg), env) => extend (env, formal, arg)) env' (ListPair.zip (formals, map (fn x => eval' (env, x)) args)), e)
+          | Value.Ctor {typ, name, numargs} =>
+            if length args <> numargs
+               then raise IncorrectNumArgs
+            else Value.Data {typ=typ, ctor=name, args= map (fn x => eval' (env, x)) args}
           | _ => raise AppliedNonFunction)
 
-     | eval (env, r as Rec (x, e)) = eval (env, substitute (x, r, e))
-     | eval (_, Bar _) = raise NotImplemented
-     | eval (_, Case _) = raise NotImplemented
+     | eval' (env, r as Rec (x, e)) = eval' (env, substitute (x, r, e))
+     | eval' (_, Bar _) = raise NotImplemented
+     | eval' (_, Case _) = raise NotImplemented
+
+in
+
+   fun eval (ds, e) = eval' (init ds, e)
 
 end
 
