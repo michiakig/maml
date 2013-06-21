@@ -32,7 +32,7 @@ and clause = Clause of constructor * variable list * expression
  *)
 val subst : expression * variable * variable -> expression
 
-datatype equation = (pattern list, expression)
+type equation = pattern list * expression
 
 (*
  * determine if an equation starts with a variable or a ctor
