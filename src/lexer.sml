@@ -18,6 +18,9 @@ datatype t = Num of int
            | Let
            | Eqls
            | In
+           | Match
+           | With
+           | Bar
 
 (* TODO: lexFile : filename -> t list *)
 val lexStr : string -> t list
@@ -43,6 +46,9 @@ datatype t = Num of int
            | Let
            | Eqls
            | In
+           | Match
+           | With
+           | Bar
 
 fun show (Num n) = "Num " ^ Int.toString n
   | show (Bool b) = "Bool " ^ Bool.toString b
@@ -61,6 +67,9 @@ fun show (Num n) = "Num " ^ Int.toString n
   | show Let = "Let"
   | show Eqls = "Eqls"
   | show In = "In"
+  | show Match = "Match"
+  | show With = "With"
+  | show Bar = "Bar"
 
 fun takeWhile p xs =
     let
@@ -108,6 +117,7 @@ fun lexStr (s : string) : t list =
          | lexStr' (acc, #"-" :: rest) = lexStr' (Sub :: acc, rest)
          | lexStr' (acc, #"*" :: rest) = lexStr' (Mul :: acc, rest)
          | lexStr' (acc, #"/" :: rest) = lexStr' (Div :: acc, rest)
+         | lexStr' (acc, #"|" :: rest) = lexStr' (Bar :: acc, rest)
          | lexStr' (acc, #"=" :: #">" :: rest) = lexStr' (Arrow :: acc, rest)
          | lexStr' (acc, #"=" :: rest) = lexStr' (Eqls :: acc, rest)
          | lexStr' (acc, all as c :: cs) =
@@ -127,6 +137,8 @@ fun lexStr (s : string) : t list =
                        | ("fn", rest) => lexStr' (Fn :: acc, rest)
                        | ("let", rest) => lexStr' (Let :: acc, rest)
                        | ("in", rest) => lexStr' (In :: acc, rest)
+                       | ("match", rest) => lexStr' (Match :: acc, rest)
+                       | ("with", rest) => lexStr' (With :: acc, rest)
                        | ("", _) =>
                          raise LexicalError ("error lexing: " ^ String.implode all)
                        | (id, rest) => lexStr' ((Id id) :: acc, rest))
