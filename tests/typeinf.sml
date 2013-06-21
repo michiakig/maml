@@ -7,7 +7,7 @@ structure T = Type
 structure S = Syntax.Concrete
 structure A = Syntax.Abstract
 
-fun main _ = (
+fun test _ = (
    check (List.getItem, SOME (Show.pair (T.show, S.show)))
          ("typeof", pred (fn (ty, syn) => (TypeInf.typeof (A.makeAst syn)) = ty))
          [
@@ -95,8 +95,6 @@ fun main _ = (
           ,(SOME (A.Num (0, 1)), (A.Pred (1, A.Num (0, 1)), 0))
           ,(SOME (A.Num (0, 1)), (A.Succ (1, A.Num (0, 1)), 0))
           ,(SOME (A.Num (0, 1)), (A.IsZero (1, A.Num (0, 1)), 0))
-         ]
-
- ; OS.Process.success)
+         ])
 
 end

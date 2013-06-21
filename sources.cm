@@ -2,14 +2,21 @@ Library
     structure Type
     structure Syntax
     structure TypeInf
-    structure TypeInfTests
+    structure Main
 is
     src/typeinf.sml
     src/stringmap.sml
     src/syntax.sml
     src/type.sml
     src/bimap.sml
-    tests/tests.sml
+    src/lexer.sml
+    src/parser.sml
+
+    tests/typeinf.sml
+    tests/lexer.sml
+    tests/parser.sml
+    tests/main.sml
+
     $/basis.cm
     $/smlnj-lib.cm
     $QCHECK/qcheck.cm
