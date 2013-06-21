@@ -1,8 +1,8 @@
 (* grammar:
  *   exprs  -> expr expr
- *   expr   -> if expr then expr else expr
- *   expr   -> fn id => expr
- *   expr   -> let id = expr in expr
+ *   expr   -> if exprs then exprs else exprs
+ *   expr   -> fn id => exprs
+ *   expr   -> let id = exprs in exprs
  *   expr   -> term expr'
  *   expr'  -> + term expr'
  *   expr'  -> - term expr'
@@ -11,7 +11,7 @@
  *   term'  -> * factor term'
  *   term'  -> / factor term'
  *   term'  ->
- *   factor -> ( expr )
+ *   factor -> ( exprs )
  *   factor -> id
  *   factor -> num
  *   factor -> bool
