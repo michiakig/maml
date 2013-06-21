@@ -8,7 +8,7 @@ struct
      | applyPrim (mul, x, y) = x * y
      | applyPrim (divv, x, y) = x div y
 
-   type pat = unit (* undefined for now *)
+   type pat = string * string list
 
    structure Expr =
    struct
@@ -27,7 +27,7 @@ struct
              | Let of string * t * t
              | Rec of string * t
              | Bar of t * t
-             | Case of string * (pat * t) list
+             | Case of t * (pat * t) list
 
       fun show (Num n) = Int.toString n
         | show (Var x) = x
@@ -39,7 +39,7 @@ struct
         | show (Let (x, e1, e2)) = "let " ^ x ^ " = " ^ show e1 ^ " in " ^ show e2
         | show (Rec (x, e)) = "rec " ^ x ^ "." ^ show e
         | show (Bar (e1, e2)) = show e1 ^ " [] " ^ show e2
-        | show (Case (v, ps)) = "case " ^ v ^ " of" ^ (concat (map (fn (p, e) => " | _ => " ^ show e) ps))
+        | show (Case (e, branches)) = "case " ^ show e ^ " of" ^ (concat (map (fn ((c, args), e) => " | " ^ c ^ " " ^ String.concatWith " " args ^ " => " ^ show e) branches))
         | show (Lam (args, e)) = "λ" ^ String.concatWith " " args ^ "." ^ show e
    end
 
@@ -48,6 +48,7 @@ struct
    exception NonNumber
    exception NotImplemented
    exception IncorrectNumArgs
+   exception NoMatchingBranch
 
    structure Env = BinaryMapFn(
       struct
@@ -61,6 +62,9 @@ struct
          | SOME v => v
 
    val extend = Env.insert
+
+   fun extends (env, xs, vs) =
+       foldl (fn ((formal, arg), acc) => extend (acc, formal, arg)) env (ListPair.zip (xs, vs))
 
    structure Value =
    struct
@@ -132,6 +136,12 @@ local
           foldl (fn (c as Value.Ctor {name, ...}, acc) => Env.insert (acc, name, c) | _ => Env.empty) Env.empty (List.concat (map data ds))
        end
 
+   fun findBranch (_, []) = NONE
+     | findBranch (ctor, (b as ((ctor', args), e)) :: bs) =
+       if ctor = ctor'
+          then SOME b
+       else findBranch (ctor, bs)
+
    fun eval' (env, Var v) = lookup (env, v)
      | eval' (_, Num n) = Value.Num n
      | eval' (env, l as Lam (args, e)) = Value.Closure (args, e, env)
@@ -144,19 +154,29 @@ local
 
      | eval' (env, App (f, args)) =
        (case eval' (env, f) of
+
             Value.Closure (formals, e, env') =>
             if length args <> length formals
                then raise IncorrectNumArgs
-            else eval' (foldl (fn ((formal, arg), env) => extend (env, formal, arg)) env' (ListPair.zip (formals, map (fn x => eval' (env, x)) args)), e)
+            else eval' (extends (env, formals, map (fn x => eval' (env, x)) args), e)
+
           | Value.Ctor {typ, name, numargs} =>
             if length args <> numargs
                then raise IncorrectNumArgs
             else Value.Data {typ=typ, ctor=name, args= map (fn x => eval' (env, x)) args}
+
           | _ => raise AppliedNonFunction)
 
      | eval' (env, r as Rec (x, e)) = eval' (env, substitute (x, r, e))
+
+     | eval' (env, Case (e, branches)) = (case eval' (env, e) of
+                                              Value.Data {typ, ctor, args} =>
+                                              (case findBranch (ctor, branches) of
+                                                   NONE => raise NoMatchingBranch
+                                                 | SOME ((ctor, args'), e') => eval' (extends (env, args', args), e'))
+                                            | _ => raise NotImplemented)
+
      | eval' (_, Bar _) = raise NotImplemented
-     | eval' (_, Case _) = raise NotImplemented
 
 in
 
