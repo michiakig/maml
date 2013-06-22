@@ -3,6 +3,8 @@ Library
     structure Syntax
     structure TypeInf
     structure Main
+    structure Parser
+    structure Lexer
 is
     src/typeinf.sml
     src/stringmap.sml

@@ -3,6 +3,13 @@
  *   expr   -> if exprs then exprs else exprs
  *   expr   -> fn id => exprs
  *   expr   -> let id = exprs in exprs
+ *   expr   -> match exprs with clause clauses
+ *   clauses -> pattern => exprs clauses'
+ *   clauses' -> | clauses
+ *   clauses' ->
+ *   pattern -> id pattern'
+ *   pattern' -> id pattern'
+ *   pattern' ->
  *   expr   -> term expr'
  *   expr'  -> + term expr'
  *   expr'  -> - term expr'
@@ -18,6 +25,9 @@
  *)
 structure Parser : sig 
 
+datatype pat = Var of string
+             | Ctor of string * pat list
+
 datatype t = Num of int
            | Bool of bool
            | Id of string
@@ -29,6 +39,7 @@ datatype t = Num of int
            | If of t * t * t
            | Fn of string * t
            | Let of string * t * t (* TODO: multi let *)
+           | Match of t * (pat * t) list
 
 val show : t -> string
 val parse : Lexer.t list -> t
@@ -37,6 +48,9 @@ end =
 struct
 
 structure L = Lexer
+
+datatype pat = Var of string
+             | Ctor of string * pat list
 
 datatype t = Num of int
            | Bool of bool
@@ -49,8 +63,14 @@ datatype t = Num of int
            | If of t * t * t
            | Fn of string * t
            | Let of string * t * t
+           | Match of t * (pat * t) list
 
-fun show (Num n) = "Num " ^ Int.toString n
+fun showPat (Var v) = "Var " ^ v
+  | showPat (Ctor (ctor, ps)) = "Ctor (" ^ ctor ^ "," ^ String.concatWith "," (map showPat ps) ^ ")"
+
+fun showClause (pat, e) = "(" ^ showPat pat ^ "=>" ^ show e ^ ")"
+
+and show (Num n) = "Num " ^ Int.toString n
   | show (Bool b) = "Bool " ^ Bool.toString b
   | show (Id s) = "Id " ^ s
   | show (Add (lhs, rhs)) = "Add (" ^ show lhs ^ "," ^ show rhs ^ ")"
@@ -61,6 +81,7 @@ fun show (Num n) = "Num " ^ Int.toString n
   | show (If (e1, e2, e3)) = "If (" ^ show e1 ^ "," ^ show e2 ^ "," ^ show e3 ^ ")"
   | show (Fn (x, e)) = "Fn (" ^ x ^ "," ^ show e ^ ")"
   | show (Let (x, e1, e2)) = "Let (" ^ x ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
+  | show (Match (e, clauses)) = "Match (" ^ show e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
 
 exception SyntaxError of string
 
@@ -121,7 +142,53 @@ fun parse toks =
                                                 end)
                                     | t => expected "=" t)
                     | t => err ("expected bound var in let expr, got " ^ L.show t))
+
+              | L.Match =>
+                (adv ()
+                ; let val e1 = exprs ()
+                  in case peek () of
+                         L.With => (adv ()
+                                 ; Match (e1, clauses ()))
+                       | t => expected "with" t
+                  end)
+
               | _ => expr' (term ()))
+
+       and clauses () : (pat * t) list =
+           (log "clauses";
+            let
+               val pat = pattern ()
+            in
+               (case peek () of
+                    L.Arrow => (adv (); (pat, exprs ()) :: clauses' ())
+                  | t => expected "=>" t)
+            end)
+
+       and clauses' () : (pat * t) list =
+           (log "clauses'"
+           ; if has ()
+                then case peek () of
+                         L.Bar => (adv () ; clauses ())
+                       | _ => []
+             else [])
+
+       and pattern () : pat =
+           (log "pattern"
+           ; case peek () of
+                 L.Id x => let val rest = (adv (); pattern' ())
+                           in if length rest > 0 (* hack. *)
+                                 then Ctor (x, rest)
+                              else Var x
+                           end
+               | t => expected "id" t)
+
+       and pattern' () : pat list =
+           (log "pattern'"
+           ; if has ()
+                then case peek () of
+                         L.Id x => (adv (); Var x :: pattern' ())
+                       | _ => []
+             else [])
 
        and term () : t =
            (log "term";

@@ -45,6 +45,14 @@ fun test _ =
             ,("if true then false else not true", P.If (P.Bool true, P.Bool false, P.App (P.Id "not", P.Bool true)))
             ,("let f = fn x => x in f 1",         P.Let ("f", P.Fn ("x", P.Id "x"), P.App (P.Id "f", P.Num 1)))
            ]
+       ; c "parser/match"
+           [
+             ("match x with Nil => 0 | Cons y ys => 1", P.Match (P.Id "x", [(P.Var "Nil", P.Num 0), (P.Ctor ("Cons", [P.Var "y", P.Var "ys"]), P.Num 1)]))
+            ,("match f x with y => 0 | z => 1", P.Match (P.App (P.Id "f", P.Id "x"), [(P.Var "y", P.Num 0), (P.Var "z", P.Num 1)]))
+            ,("match f x with y => g y | z => h z", P.Match (P.App (P.Id "f", P.Id "x"), [(P.Var "y", P.App (P.Id "g", P.Id "y")), (P.Var "z", P.App (P.Id "h", P.Id "z"))]))
+            ,("match x with y => if y then 1 else 2", P.Match (P.Id "x", [(P.Var "y", P.If (P.Id "y", P.Num 1, P.Num 2))]))
+            ,("match (x) with y => (if y then 1 else 2)", P.Match (P.Id "x", [(P.Var "y", P.If (P.Id "y", P.Num 1, P.Num 2))]))
+           ]
        )
     end
 
