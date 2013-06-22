@@ -52,6 +52,12 @@ fun test _ =
             ,("match f x with y => g y | z => h z", P.Match (P.App (P.Id "f", P.Id "x"), [(P.Var "y", P.App (P.Id "g", P.Id "y")), (P.Var "z", P.App (P.Id "h", P.Id "z"))]))
             ,("match x with y => if y then 1 else 2", P.Match (P.Id "x", [(P.Var "y", P.If (P.Id "y", P.Num 1, P.Num 2))]))
             ,("match (x) with y => (if y then 1 else 2)", P.Match (P.Id "x", [(P.Var "y", P.If (P.Id "y", P.Num 1, P.Num 2))]))
+            ,("match x with\n   (Nil)          => 0\n | (Cons y (Nil)) => 1\n | (Cons y ys)    => 2\n",
+              P.Match (P.Id "x", [
+                         (P.Ctor ("Nil", []), P.Num 0)
+                        ,(P.Ctor ("Cons", [P.Var "y", P.Ctor ("Nil", [])]), P.Num 1)
+                        ,(P.Ctor ("Cons", [P.Var "y", P.Var "ys"]), P.Num 2)
+             ]))
            ]
        )
     end
