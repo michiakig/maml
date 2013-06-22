@@ -3,6 +3,7 @@ structure Lexer : sig
 (* TODO: attach line & column numbers *)
 datatype t = Num of int
            | Id of string
+           | Ctor of string
            | Bool of bool
            | LParen
            | RParen
@@ -31,6 +32,7 @@ struct
 
 datatype t = Num of int
            | Id of string
+           | Ctor of string
            | Bool of bool
            | LParen
            | RParen
@@ -53,6 +55,7 @@ datatype t = Num of int
 fun show (Num n) = "Num " ^ Int.toString n
   | show (Bool b) = "Bool " ^ Bool.toString b
   | show (Id s) = "Id " ^ s
+  | show (Ctor s) = "Ctor " ^ s
   | show LParen = "LParen"
   | show RParen = "RParen"
   | show Add = "Add"
@@ -141,7 +144,9 @@ fun lexStr (s : string) : t list =
                        | ("with", rest) => lexStr' (With :: acc, rest)
                        | ("", _) =>
                          raise LexicalError ("error lexing: " ^ String.implode all)
-                       | (id, rest) => lexStr' ((Id id) :: acc, rest))
+                       | (id, rest) => if Char.isUpper (String.sub (id, 0))
+                                          then lexStr' ((Ctor id) :: acc, rest)
+                                       else lexStr' ((Id id) :: acc, rest))
          | lexStr' (acc, []) = rev acc
     in
        lexStr' ([], String.explode s)

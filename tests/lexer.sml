@@ -17,7 +17,9 @@ fun test _ = (
           ,("let x = 0 in x + x",       [L.Let, L.Id "x", L.Eqls, L.Num 0, L.In, L.Id "x", L.Add, L.Id "x"])
           ,("let x=0 in x + x",         [L.Let, L.Id "x", L.Eqls, L.Num 0, L.In, L.Id "x", L.Add, L.Id "x"])
 
-          ,("match xs with Nil => 0 | Cons x xs => 1", [L.Match, L.Id "xs", L.With, L.Id "Nil", L.Arrow, L.Num 0, L.Bar, L.Id "Cons", L.Id "x", L.Id "xs", L.Arrow, L.Num 1])
+          ,("match x with (Nil) => 0 | (Cons y ys) => 1",
+            [L.Match, L.Id "x", L.With, L.LParen, L.Ctor "Nil", L.RParen, L.Arrow, L.Num 0, L.Bar, L.LParen, L.Ctor "Cons", L.Id "y", L.Id "ys", L.RParen, L.Arrow, L.Num 1])
+
           ,("match x with 1 => 1 | 2 => 2", [L.Match, L.Id "x", L.With, L.Num 1, L.Arrow, L.Num 1, L.Bar, L.Num 2, L.Arrow, L.Num 2])
          ])
 

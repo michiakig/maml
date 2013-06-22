@@ -175,18 +175,24 @@ fun parse toks =
        and pattern () : pat =
            (log "pattern"
            ; case peek () of
-                 L.Id x => let val rest = (adv (); pattern' ())
-                           in if length rest > 0 (* hack. *)
-                                 then Ctor (x, rest)
-                              else Var x
-                           end
-               | t => expected "id" t)
+                 L.Id x => (adv (); Var x)
+               | L.LParen => (adv ()
+                             ; case peek () of
+                                   L.Ctor c => (adv ()
+                                               ; let val ctor = Ctor (c, pattern' ())
+                                                 in case peek () of
+                                                        L.RParen => (adv (); ctor)
+                                                      | t => expected "closing paren in pattern" t
+                                                 end)
+                                 | t => expected "ctor application in pattern" t)
+               | t => expected "var or parenthesized ctor application in pattern" t)
 
        and pattern' () : pat list =
            (log "pattern'"
            ; if has ()
                 then case peek () of
-                         L.Id x => (adv (); Var x :: pattern' ())
+                         L.Id _ => (pattern () :: pattern' ())
+                       | L.LParen => (pattern () :: pattern' ())
                        | _ => []
              else [])
 
