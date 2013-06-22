@@ -7,8 +7,9 @@
  *   clauses -> pattern => exprs clauses'
  *   clauses' -> | clauses
  *   clauses' ->
- *   pattern -> id pattern'
- *   pattern' -> id pattern'
+ *   pattern -> id
+ *   pattern -> (ctor pattern')
+ *   pattern' -> pattern pattern'
  *   pattern' ->
  *   expr   -> term expr'
  *   expr'  -> + term expr'
