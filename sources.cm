@@ -2,21 +2,26 @@ Library
     structure Type
     structure Syntax
     structure TypeInf
-    structure Main
-    structure Parser
-    structure Pattern
-    structure Desugar
+
     structure Lexer
+    structure Parser
+    structure Abstract
+    structure Desugar
+    structure Pattern
+
+    structure Main
 is
     src/typeinf.sml
     src/stringmap.sml
     src/syntax.sml
     src/type.sml
     src/bimap.sml
+
     src/lexer.sml
     src/parser.sml
-    src/pattern.sml
+    src/abstract.sml
     src/desugar.sml
+    src/pattern.sml
 
     tests/typeinf.sml
     tests/lexer.sml

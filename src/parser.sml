@@ -26,61 +26,13 @@
  *)
 structure Parser : sig 
 
-datatype t = Num of int
-           | Bool of bool
-           | Id of string
-           | Add of t * t
-           | Mul of t * t
-           | Div of t * t
-           | Sub of t * t
-           | App of t * t (* TODO: curried function application, ie "f g x" ~> "App (App (f, g), x)" *)
-           | If of t * t * t
-           | Fn of string * t
-           | Let of string * t * t (* TODO: multi let *)
-           | Match of t * (Pattern.Complex.t * t) list
-
-           | Case of t * (Pattern.Simple.t * t) list
-           | Bar of t * t
-
-val show : t -> string
-val parse : Lexer.t list -> t
+val parse : Lexer.t list -> Abstract.t
 
 end =
 struct
 
 structure L = Lexer
-
-datatype t = Num of int
-           | Bool of bool
-           | Id of string
-           | Add of t * t
-           | Mul of t * t
-           | Div of t * t
-           | Sub of t * t
-           | App of t * t
-           | If of t * t * t
-           | Fn of string * t
-           | Let of string * t * t
-           | Match of t * (Pattern.Complex.t * t) list
-
-           | Case of t * (Pattern.Simple.t * t) list
-           | Bar of t * t
-
-fun showClause (pat, e) = "(" ^ Pattern.Complex.show pat ^ "=>" ^ show e ^ ")"
-
-and show (Num n) = "Num " ^ Int.toString n
-  | show (Bool b) = "Bool " ^ Bool.toString b
-  | show (Id s) = "Id " ^ s
-  | show (Add (lhs, rhs)) = "Add (" ^ show lhs ^ "," ^ show rhs ^ ")"
-  | show (Sub (lhs, rhs)) = "Sub (" ^ show lhs ^ "," ^ show rhs ^ ")"
-  | show (Mul (lhs, rhs)) = "Mul (" ^ show lhs ^ "," ^ show rhs ^ ")"
-  | show (Div (lhs, rhs)) = "Div (" ^ show lhs ^ "," ^ show rhs ^ ")"
-  | show (App (e1, e2)) = "App (" ^ show e1 ^ "," ^ show e2 ^ ")"
-  | show (If (e1, e2, e3)) = "If (" ^ show e1 ^ "," ^ show e2 ^ "," ^ show e3 ^ ")"
-  | show (Fn (x, e)) = "Fn (" ^ x ^ "," ^ show e ^ ")"
-  | show (Let (x, e1, e2)) = "Let (" ^ x ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
-  | show (Match (e, clauses)) = "Match (" ^ show e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
-
+structure A = Abstract
 exception SyntaxError of string
 
 fun parse toks =
@@ -103,7 +55,7 @@ fun parse toks =
               else ()
            end
 
-       fun expr () : t =
+       fun expr () : A.t =
            (log "expr";
             case peek () of
                 L.If =>
@@ -114,7 +66,7 @@ fun parse toks =
                                    ; let val e2 = exprs ()
                                      in case peek () of
                                             L.Else => (adv ()
-                                                      ; If (e1, e2, exprs ()))
+                                                      ; A.If (e1, e2, exprs ()))
                                           | t => expected "else" t
                                      end)
                        | t => expected "then" t
@@ -124,7 +76,7 @@ fun parse toks =
                 ; case peek () of
                       L.Id x => (adv ()
                                 ; case peek () of
-                                      L.Arrow => (adv (); Fn (x, exprs ()))
+                                      L.Arrow => (adv (); A.Fn (x, exprs ()))
                                     | t => expected "=>" t)
                     | t => err ("expected formal arg in fn expr, got " ^ L.show t))
               | L.Let =>
@@ -135,7 +87,7 @@ fun parse toks =
                                       L.Eqls => (adv ()
                                               ; let val bound = exprs ()
                                                 in case peek () of
-                                                       L.In => (adv (); Let (x, bound, exprs ()))
+                                                       L.In => (adv (); A.Let (x, bound, exprs ()))
                                                      | t => expected "in" t
                                                 end)
                                     | t => expected "=" t)
@@ -146,13 +98,13 @@ fun parse toks =
                 ; let val e1 = exprs ()
                   in case peek () of
                          L.With => (adv ()
-                                 ; Match (e1, clauses ()))
+                                 ; A.Match (e1, clauses ()))
                        | t => expected "with" t
                   end)
 
               | _ => expr' (term ()))
 
-       and clauses () : (Pattern.Complex.t * t) list =
+       and clauses () : (Pattern.Complex.t * A.t) list =
            (log "clauses";
             let
                val pat = pattern ()
@@ -162,7 +114,7 @@ fun parse toks =
                   | t => expected "=>" t)
             end)
 
-       and clauses' () : (Pattern.Complex.t * t) list =
+       and clauses' () : (Pattern.Complex.t * A.t) list =
            (log "clauses'"
            ; if has ()
                 then case peek () of
@@ -194,7 +146,7 @@ fun parse toks =
                        | _ => []
              else [])
 
-       and term () : t =
+       and term () : A.t =
            (log "term";
             let
                val lhs = factor ()
@@ -202,25 +154,25 @@ fun parse toks =
                term' lhs
             end)
 
-       and expr' (lhs : t) : t =
+       and expr' (lhs : A.t) : A.t =
            (log "expr'";
            if has ()
               then case peek () of
-                       L.Add => (next (); expr' (Add (lhs, term ())))
-                     | L.Sub => (next (); expr' (Sub (lhs, term ())))
+                       L.Add => (next (); expr' (A.Add (lhs, term ())))
+                     | L.Sub => (next (); expr' (A.Sub (lhs, term ())))
                      | _ => lhs
            else lhs)
 
-       and term' (lhs : t) : t =
+       and term' (lhs : A.t) : A.t =
            (log "term'";
            if has ()
               then case peek () of
-                       L.Mul => (next (); term' (Mul (lhs, factor ())))
-                     | L.Div => (next (); term' (Div (lhs, factor ())))
+                       L.Mul => (next (); term' (A.Mul (lhs, factor ())))
+                     | L.Div => (next (); term' (A.Div (lhs, factor ())))
                      | _ => lhs
            else lhs)
 
-       and factor () : t =
+       and factor () : A.t =
            (log "factor";
             case getNext () of
                 SOME L.LParen => let val ast = exprs ()
@@ -229,13 +181,13 @@ fun parse toks =
                                       | SOME t => expected ")" t
                                       | _ => err "unexpected end of input, expected )"
                                  end
-              | SOME (L.Num n) => Num n
-              | SOME (L.Bool b) => Bool b
-              | SOME (L.Id s) => Id s
+              | SOME (L.Num n) => A.Num n
+              | SOME (L.Bool b) => A.Bool b
+              | SOME (L.Id s) => A.Id s
               | SOME t => expected "bool, num or id" t
               | _ => err "unexpected end of input, expected bool, num or id")
 
-       and exprs () : t =
+       and exprs () : A.t =
            let
               (* check if token is in FIRST(expr) *)
               fun FIRSTexpr (L.Id _) = true
@@ -250,7 +202,7 @@ fun parse toks =
               val ast1 = expr ()
            in
               if has () andalso FIRSTexpr (peek ())
-                 then App (ast1, expr ())
+                 then A.App (ast1, expr ())
               else ast1
            end
     in

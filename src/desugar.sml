@@ -7,7 +7,8 @@
 structure Desugar =
 struct
 
-type eqxn = Pattern.Complex.t list * Parser.t
+structure A = Abstract
+type eqxn = Pattern.Complex.t list * A.t
 exception Assert of string
 
 (*
@@ -49,38 +50,38 @@ end
  * substitute e2 for x in e1
  * this doesn't need to be so hairy if gensym can generate truly unique ids
  *)
-fun subst (e1 : Parser.t, x : string, e2 : string) : Parser.t =
+fun subst (e1 : A.t, x : string, e2 : string) : A.t =
     case e1 of
-        n as Parser.Num _ => n
-      | b as Parser.Bool _ => b
-      | Parser.Add (e3, e4) => Parser.Add (subst (e3, x, e2), subst (e4, x, e2))
-      | Parser.Mul (e3, e4) => Parser.Mul (subst (e3, x, e2), subst (e4, x, e2))
-      | Parser.Div (e3, e4) => Parser.Div (subst (e3, x, e2), subst (e4, x, e2))
-      | Parser.Sub (e3, e4) => Parser.Sub (subst (e3, x, e2), subst (e4, x, e2))
-      | Parser.App (e3, e4) => Parser.App (subst (e3, x, e2), subst (e4, x, e2))
-      | Parser.If (e3, e4, e5) => Parser.If (subst (e3, x, e2), subst (e4, x, e2), subst (e5, x, e2))
+        n as A.Num _ => n
+      | b as A.Bool _ => b
+      | A.Add (e3, e4) => A.Add (subst (e3, x, e2), subst (e4, x, e2))
+      | A.Mul (e3, e4) => A.Mul (subst (e3, x, e2), subst (e4, x, e2))
+      | A.Div (e3, e4) => A.Div (subst (e3, x, e2), subst (e4, x, e2))
+      | A.Sub (e3, e4) => A.Sub (subst (e3, x, e2), subst (e4, x, e2))
+      | A.App (e3, e4) => A.App (subst (e3, x, e2), subst (e4, x, e2))
+      | A.If (e3, e4, e5) => A.If (subst (e3, x, e2), subst (e4, x, e2), subst (e5, x, e2))
 
-      | id as Parser.Id x' => if x = x' then Parser.Id e2 else id
+      | id as A.Id x' => if x = x' then A.Id e2 else id
 
       (* have to be careful about bound vars *)
-      | f as Parser.Fn (x', e) =>
+      | f as A.Fn (x', e) =>
         if x = x'
            then f
-        else Parser.Fn (x', subst (e, x, e2))
+        else A.Fn (x', subst (e, x, e2))
 
-      | l as Parser.Let (x', e3, e4)  =>
+      | l as A.Let (x', e3, e4)  =>
         if x = x'
            then l
-        else Parser.Let (x', subst (e3, x, e2), subst (e3, x, e2))
+        else A.Let (x', subst (e3, x, e2), subst (e3, x, e2))
 
       (* match also binds new vars... *)
-      | m as Parser.Match (e3, qs) =>
+      | m as A.Match (e3, qs) =>
         let
            fun occurs (Pattern.Complex.Var v) = v = x
              | occurs (Pattern.Complex.Ctor (_, ps)) = List.exists occurs ps
            fun subst' (p, e) = if occurs p then (p, e) else (p, subst (e, x, e2))
         in
-           Parser.Match (subst (e3, x, e2), map subst' qs)
+           A.Match (subst (e3, x, e2), map subst' qs)
         end
 
 fun tack (x, xss) = (x :: hd xss) :: tl xss
@@ -114,21 +115,21 @@ fun subpats (ctor : string, eqxns : eqxn list) : eqxn list =
 fun choose (ctor, qs) =
     List.filter (fn q => getCtor q = ctor) qs
 
-fun match ((u::us) : Parser.t list, qs : eqxn list, def : Parser.t) : Parser.t =
+fun match ((u::us) : A.t list, qs : eqxn list, def : A.t) : A.t =
     foldr (fn (qs, acc) => matchVarCon (u::us, qs, acc)) def (partition isVar qs)
-  | match ([], qs, def) = foldr Parser.Bar def (map (fn ([], e) => e) qs)
+  | match ([], qs, def) = foldr A.Bar def (map (fn ([], e) => e) qs)
 
-and matchVarCon (us : Parser.t list, (q::qs) : eqxn list, def : Parser.t) : Parser.t =
+and matchVarCon (us : A.t list, (q::qs) : eqxn list, def : A.t) : A.t =
     if isVar q
        then matchVar (us, q::qs, def)
     else matchCtor (us, q::qs, def)
 
-and matchVar ((u::us) : Parser.t list, qs : eqxn list, def : Parser.t) : Parser.t =
+and matchVar ((u::us) : A.t list, qs : eqxn list, def : A.t) : A.t =
     let
        val u' = gensym "_u"
        fun matchVar' (Pattern.Complex.Var v :: ps, e) = (ps, subst (e, v, u'))
     in
-       Parser.Let (u', u, match (us, map matchVar' qs, def))
+       A.Let (u', u, match (us, map matchVar' qs, def))
     end
   | matchVar ([], _, _) = raise Assert "matchVar: empty list of eqxns"
 
@@ -136,19 +137,19 @@ and matchVar ((u::us) : Parser.t list, qs : eqxn list, def : Parser.t) : Parser.
  * Return a case clause (pat * expr) for this ctor, exprs, eqxns, default
  * where the expr is the result of recursively compiling the rest of the pattern match
  *)
-and matchClause (ctor : string, (u::us) : Parser.t list, qs : eqxn list, def : Parser.t) : (Pattern.Simple.t * Parser.t) =
+and matchClause (ctor : string, (u::us) : A.t list, qs : eqxn list, def : A.t) : (Pattern.Simple.t * A.t) =
     let
        val us' = List.tabulate (arity ctor, fn _ => gensym "_u")
     in
-       (Pattern.Simple.Ctor (ctor, us'), match ((map Parser.Id us') @ us, subpats (ctor, qs), def))
+       (Pattern.Simple.Ctor (ctor, us'), match ((map A.Id us') @ us, subpats (ctor, qs), def))
     end
   | matchClause (_, [], _, _) = raise Assert "matchClause: empty list of exprs"
 
-and matchCtor ((u::us) : Parser.t list, (q::qs) : eqxn list, def : Parser.t) : Parser.t =
+and matchCtor ((u::us) : A.t list, (q::qs) : eqxn list, def : A.t) : A.t =
     let
        val ctors = ctors (getCtor q)
     in
-       Parser.Case (u, map (fn ctor => matchClause (ctor, u::us, choose (ctor, q::qs), def)) ctors)
+       A.Case (u, map (fn ctor => matchClause (ctor, u::us, choose (ctor, q::qs), def)) ctors)
     end
   | matchCtor ([], _, _) = raise Assert "matchCtor: empty list of exprs"
   | matchCtor (_, [], _) = raise Assert "matchCtor: empty list of eqxns"
