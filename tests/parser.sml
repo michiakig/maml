@@ -2,7 +2,7 @@ structure ParserTests =
 struct
 open QCheck
 structure P = Parser
-structure Pat = Pattern
+structure Pat = Pattern.Complex
 fun test _ =
     let
        fun c name = check (List.getItem, SOME (Show.pair (fn x => x, P.show)))

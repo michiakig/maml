@@ -37,7 +37,10 @@ datatype t = Num of int
            | If of t * t * t
            | Fn of string * t
            | Let of string * t * t (* TODO: multi let *)
-           | Match of t * (Pattern.t * t) list
+           | Match of t * (Pattern.Complex.t * t) list
+
+           | Case of t * (Pattern.Simple.t * t) list
+           | Bar of t * t
 
 val show : t -> string
 val parse : Lexer.t list -> t
@@ -58,9 +61,12 @@ datatype t = Num of int
            | If of t * t * t
            | Fn of string * t
            | Let of string * t * t
-           | Match of t * (Pattern.t * t) list
+           | Match of t * (Pattern.Complex.t * t) list
 
-fun showClause (pat, e) = "(" ^ Pattern.show pat ^ "=>" ^ show e ^ ")"
+           | Case of t * (Pattern.Simple.t * t) list
+           | Bar of t * t
+
+fun showClause (pat, e) = "(" ^ Pattern.Complex.show pat ^ "=>" ^ show e ^ ")"
 
 and show (Num n) = "Num " ^ Int.toString n
   | show (Bool b) = "Bool " ^ Bool.toString b
@@ -146,7 +152,7 @@ fun parse toks =
 
               | _ => expr' (term ()))
 
-       and clauses () : (Pattern.t * t) list =
+       and clauses () : (Pattern.Complex.t * t) list =
            (log "clauses";
             let
                val pat = pattern ()
@@ -156,7 +162,7 @@ fun parse toks =
                   | t => expected "=>" t)
             end)
 
-       and clauses' () : (Pattern.t * t) list =
+       and clauses' () : (Pattern.Complex.t * t) list =
            (log "clauses'"
            ; if has ()
                 then case peek () of
@@ -164,14 +170,14 @@ fun parse toks =
                        | _ => []
              else [])
 
-       and pattern () : Pattern.t =
+       and pattern () : Pattern.Complex.t =
            (log "pattern"
            ; case peek () of
-                 L.Id x => (adv (); Pattern.Var x)
+                 L.Id x => (adv (); Pattern.Complex.Var x)
                | L.LParen => (adv ()
                              ; case peek () of
                                    L.Ctor c => (adv ()
-                                               ; let val ctor = Pattern.Ctor (c, pattern' ())
+                                               ; let val ctor = Pattern.Complex.Ctor (c, pattern' ())
                                                  in case peek () of
                                                         L.RParen => (adv (); ctor)
                                                       | t => expected "closing paren in pattern" t
@@ -179,7 +185,7 @@ fun parse toks =
                                  | t => expected "ctor application in pattern" t)
                | t => expected "var or parenthesized ctor application in pattern" t)
 
-       and pattern' () : Pattern.t list =
+       and pattern' () : Pattern.Complex.t list =
            (log "pattern'"
            ; if has ()
                 then case peek () of

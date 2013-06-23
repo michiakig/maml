@@ -4,10 +4,10 @@ struct
 open QCheck
 open Desugar
 structure P = Parser
-structure Pat = Pattern
+structure Pat = Pattern.Complex
 
 local
-  val eqxn = Show.pair (Show.list Pattern.show, Parser.show)
+  val eqxn = Show.pair (Show.list Pat.show, Parser.show)
 in
    fun test _ = (
       check (List.getItem, SOME (Show.pair (Show.pair (Show.string, Show.list eqxn),
