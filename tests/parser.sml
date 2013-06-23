@@ -2,6 +2,7 @@ structure ParserTests =
 struct
 open QCheck
 structure P = Parser
+structure Pat = Pattern
 fun test _ =
     let
        fun c name = check (List.getItem, SOME (Show.pair (fn x => x, P.show)))
@@ -47,16 +48,16 @@ fun test _ =
            ]
        ; c "parser/match"
            [
-             ("match x with (Nil) => 0 | (Cons y ys) => 1", P.Match (P.Id "x", [(P.Ctor ("Nil", []), P.Num 0), (P.Ctor ("Cons", [P.Var "y", P.Var "ys"]), P.Num 1)]))
-            ,("match f x with y => 0 | z => 1", P.Match (P.App (P.Id "f", P.Id "x"), [(P.Var "y", P.Num 0), (P.Var "z", P.Num 1)]))
-            ,("match f x with y => g y | z => h z", P.Match (P.App (P.Id "f", P.Id "x"), [(P.Var "y", P.App (P.Id "g", P.Id "y")), (P.Var "z", P.App (P.Id "h", P.Id "z"))]))
-            ,("match x with y => if y then 1 else 2", P.Match (P.Id "x", [(P.Var "y", P.If (P.Id "y", P.Num 1, P.Num 2))]))
-            ,("match (x) with y => (if y then 1 else 2)", P.Match (P.Id "x", [(P.Var "y", P.If (P.Id "y", P.Num 1, P.Num 2))]))
+             ("match x with (Nil) => 0 | (Cons y ys) => 1", P.Match (P.Id "x", [(Pat.Ctor ("Nil", []), P.Num 0), (Pat.Ctor ("Cons", [Pat.Var "y", Pat.Var "ys"]), P.Num 1)]))
+            ,("match f x with y => 0 | z => 1", P.Match (P.App (P.Id "f", P.Id "x"), [(Pat.Var "y", P.Num 0), (Pat.Var "z", P.Num 1)]))
+            ,("match f x with y => g y | z => h z", P.Match (P.App (P.Id "f", P.Id "x"), [(Pat.Var "y", P.App (P.Id "g", P.Id "y")), (Pat.Var "z", P.App (P.Id "h", P.Id "z"))]))
+            ,("match x with y => if y then 1 else 2", P.Match (P.Id "x", [(Pat.Var "y", P.If (P.Id "y", P.Num 1, P.Num 2))]))
+            ,("match (x) with y => (if y then 1 else 2)", P.Match (P.Id "x", [(Pat.Var "y", P.If (P.Id "y", P.Num 1, P.Num 2))]))
             ,("match x with\n   (Nil)          => 0\n | (Cons y (Nil)) => 1\n | (Cons y ys)    => 2\n",
               P.Match (P.Id "x", [
-                         (P.Ctor ("Nil", []), P.Num 0)
-                        ,(P.Ctor ("Cons", [P.Var "y", P.Ctor ("Nil", [])]), P.Num 1)
-                        ,(P.Ctor ("Cons", [P.Var "y", P.Var "ys"]), P.Num 2)
+                         (Pat.Ctor ("Nil", []), P.Num 0)
+                        ,(Pat.Ctor ("Cons", [Pat.Var "y", Pat.Ctor ("Nil", [])]), P.Num 1)
+                        ,(Pat.Ctor ("Cons", [Pat.Var "y", Pat.Var "ys"]), P.Num 2)
              ]))
            ]
        )

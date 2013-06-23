@@ -4,6 +4,8 @@ Library
     structure TypeInf
     structure Main
     structure Parser
+    structure Pattern
+    structure Desugar
     structure Lexer
 is
     src/typeinf.sml
@@ -13,10 +15,13 @@ is
     src/bimap.sml
     src/lexer.sml
     src/parser.sml
+    src/pattern.sml
+    src/desugar.sml
 
     tests/typeinf.sml
     tests/lexer.sml
     tests/parser.sml
+    tests/desugar.sml
     tests/main.sml
 
     $/basis.cm
