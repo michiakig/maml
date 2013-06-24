@@ -120,9 +120,12 @@ fun choose (ctor, qs) =
 
 fun match ((u::us) : 'a A.t list, qs : 'a eqxn list, def : 'a A.t) : 'a A.t =
     foldr (fn (qs, acc) => matchVarCon (u::us, qs, acc)) def (partition isVar qs)
-  | match ([], qs, def) = let val info = A.getInfo def (* FIXME, or not, if we can discard Bar *)
-                          in foldr (fn (e, acc) => A.Bar (info, e, acc)) def (map (fn ([], e) => e) qs)
-                          end
+  | match ([], [(pats, e)], def) =
+    if not (null pats)
+       then raise Assert "match: patterns left but no exprs"
+     else e
+  | match ([], [], def) = def
+  | match ([], q::q'::qs, _) = raise Assert "match: multiple eqxns but no exprs"
 
 and matchVarCon (us : 'a A.t list, (q::qs) : 'a eqxn list, def : 'a A.t) : 'a A.t =
     if isVar q

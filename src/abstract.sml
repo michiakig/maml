@@ -20,7 +20,6 @@ struct
                  | Match of mono * (Pattern.Complex.t * mono) list
 
                  | Case of mono * (Pattern.Simple.t * mono) list
-                 | Bar of mono * mono
 
 local
 
@@ -42,7 +41,6 @@ and show' (Num (n))            = "Num " ^ Int.toString n
   | show' (Match (e, clauses)) = "Match (" ^ show' e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
 
   | show' (Case (e, clauses)) = "Case (" ^ show' e ^ "," ^ String.concatWith "|" (map showClause' clauses) ^ ")"
-  | show' (Bar (e1, e2)) = "Bar (" ^ show' e1 ^ "," ^ show' e2 ^ ")"
 in
    val show = show'
 end
@@ -64,7 +62,6 @@ datatype 'a t = Num of 'a * int
               | Match of 'a * 'a t * (Pattern.Complex.t * 'a t) list
 
               | Case of 'a * 'a t * (Pattern.Simple.t * 'a t) list
-              | Bar of 'a * 'a t * 'a t
 
 fun toMono (Num (_, n))            = Mono.Num n
   | toMono (Bool (_, b))           = Mono.Bool b
@@ -79,7 +76,6 @@ fun toMono (Num (_, n))            = Mono.Num n
   | toMono (Let (_, x, e1, e2))    = Mono.Let (x, toMono e1, toMono e2)
   | toMono (Match (_, e, clauses)) = Mono.Match (toMono e, map (fn (pat, e) => (pat, toMono e)) clauses)
   | toMono (Case (_, e, clauses))  = Mono.Case (toMono e, map (fn (pat, e) => (pat, toMono e)) clauses)
-  | toMono (Bar (_, e1, e2))       = Mono.Bar (toMono e1, toMono e2)
 
 fun getInfo (Num (info, _))       = info
   | getInfo (Bool (info, _))      = info
@@ -94,7 +90,6 @@ fun getInfo (Num (info, _))       = info
   | getInfo (Let (info, _, _, _)) = info
   | getInfo (Match (info, _, _))  = info
   | getInfo (Case (info, _, _))   = info
-  | getInfo (Bar (info, _, _))    = info
 
 local
 
@@ -116,7 +111,6 @@ and show' (Num (_, n))            = "Num " ^ Int.toString n
   | show' (Match (_, e, clauses)) = "Match (" ^ show' e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
 
   | show' (Case (_, e, clauses)) = "Case (" ^ show' e ^ "," ^ String.concatWith "|" (map showClause' clauses) ^ ")"
-  | show' (Bar (_, e1, e2)) = "Bar (" ^ show' e1 ^ "," ^ show' e2 ^ ")"
 
 in
    val show = show'
