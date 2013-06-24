@@ -26,7 +26,7 @@
  *)
 structure Parser : sig 
 
-val parse : Lexer.t list -> Abstract.t
+val parse : 'a Lexer.t list -> 'a Abstract.t
 
 end =
 struct
@@ -35,7 +35,10 @@ structure L = Lexer
 structure A = Abstract
 exception SyntaxError of string
 
-fun parse toks =
+(*
+ * Given list of tokens, return a parse tree, 'a will be some kind of position record, but the parser doesn't really care about the concrete type
+ *)
+fun parse (toks : 'a L.t list) : 'a A.t =
     let
        val rest = ref toks
        fun has () = not (null (!rest))
@@ -55,85 +58,86 @@ fun parse toks =
               else ()
            end
 
-       fun expr () : A.t =
+       fun expr () : 'a A.t =
            (log "expr";
             case peek () of
-                L.If =>
+                L.If pos =>
                 (adv ()
                 ; let val e1 = exprs ()
                   in case peek () of
-                         L.Then => (adv ()
-                                   ; let val e2 = exprs ()
-                                     in case peek () of
-                                            L.Else => (adv ()
-                                                      ; A.If (e1, e2, exprs ()))
-                                          | t => expected "else" t
-                                     end)
+                         L.Then _ => (adv ()
+                                     ; let val e2 = exprs ()
+                                       in case peek () of
+                                              L.Else _ => (adv ()
+                                                          ; A.If (pos, e1, e2, exprs ()))
+                                            | t => expected "else" t
+                                       end)
                        | t => expected "then" t
                   end)
-              | L.Fn =>
+              | L.Fn pos =>
                 (adv ()
                 ; case peek () of
-                      L.Id x => (adv ()
-                                ; case peek () of
-                                      L.Arrow => (adv (); A.Fn (x, exprs ()))
-                                    | t => expected "=>" t)
+                      L.Id (_, x) => (adv ()
+                                     ; case peek () of
+                                           L.Arrow _ => (adv ()
+                                                        ; A.Fn (pos, x, exprs ()))
+                                         | t => expected "=>" t)
                     | t => err ("expected formal arg in fn expr, got " ^ L.show t))
-              | L.Let =>
+              | L.Let pos =>
                 (adv ()
                 ; case peek () of
-                      L.Id x => (adv ()
-                                ; case peek () of
-                                      L.Eqls => (adv ()
-                                              ; let val bound = exprs ()
-                                                in case peek () of
-                                                       L.In => (adv (); A.Let (x, bound, exprs ()))
-                                                     | t => expected "in" t
-                                                end)
-                                    | t => expected "=" t)
+                      L.Id (_, x) => (adv ()
+                                     ; case peek () of
+                                           L.Eqls _ => (adv ()
+                                                       ; let val bound = exprs ()
+                                                         in case peek () of
+                                                                L.In _ => (adv (); A.Let (pos, x, bound, exprs ()))
+                                                              | t => expected "in" t
+                                                         end)
+                                         | t => expected "=" t)
                     | t => err ("expected bound var in let expr, got " ^ L.show t))
 
-              | L.Match =>
+              | L.Match pos =>
                 (adv ()
                 ; let val e1 = exprs ()
                   in case peek () of
-                         L.With => (adv ()
-                                 ; A.Match (e1, clauses ()))
+                         L.With _ => (adv ()
+                                     ; A.Match (pos, e1, clauses ()))
                        | t => expected "with" t
                   end)
 
               | _ => expr' (term ()))
 
-       and clauses () : (Pattern.Complex.t * A.t) list =
+       and clauses () : (Pattern.Complex.t * 'a A.t) list =
            (log "clauses";
             let
                val pat = pattern ()
             in
                (case peek () of
-                    L.Arrow => (adv (); (pat, exprs ()) :: clauses' ())
+                    L.Arrow _ => (adv (); (pat, exprs ()) :: clauses' ())
                   | t => expected "=>" t)
             end)
 
-       and clauses' () : (Pattern.Complex.t * A.t) list =
+       and clauses' () : (Pattern.Complex.t * 'a A.t) list =
            (log "clauses'"
            ; if has ()
                 then case peek () of
-                         L.Bar => (adv () ; clauses ())
+                         L.Bar _ => (adv () ; clauses ())
                        | _ => []
              else [])
 
        and pattern () : Pattern.Complex.t =
            (log "pattern"
            ; case peek () of
-                 L.Id x => (adv (); Pattern.Complex.Var x)
-               | L.LParen => (adv ()
-                             ; case peek () of
-                                   L.Ctor c => (adv ()
-                                               ; let val ctor = Pattern.Complex.Ctor (c, pattern' ())
-                                                 in case peek () of
-                                                        L.RParen => (adv (); ctor)
-                                                      | t => expected "closing paren in pattern" t
-                                                 end)
+                 L.Id (_, x) => (adv (); Pattern.Complex.Var x)
+               | L.LParen _ => (adv ()
+                               ; case peek () of
+                                     L.Ctor (_, c) => (adv ()
+                                                      ; let val ctor = Pattern.Complex.Ctor (c, pattern' ())
+                                                        in case peek () of
+                                                               L.RParen _ => (adv (); ctor)
+                                                             | t => expected "closing paren in pattern" t
+                                                        end)
                                  | t => expected "ctor application in pattern" t)
                | t => expected "var or parenthesized ctor application in pattern" t)
 
@@ -142,11 +146,11 @@ fun parse toks =
            ; if has ()
                 then case peek () of
                          L.Id _ => (pattern () :: pattern' ())
-                       | L.LParen => (pattern () :: pattern' ())
+                       | L.LParen _ => (pattern () :: pattern' ())
                        | _ => []
              else [])
 
-       and term () : A.t =
+       and term () : 'a A.t =
            (log "term";
             let
                val lhs = factor ()
@@ -154,55 +158,57 @@ fun parse toks =
                term' lhs
             end)
 
-       and expr' (lhs : A.t) : A.t =
+       and expr' (lhs : 'a A.t) : 'a A.t =
            (log "expr'";
            if has ()
               then case peek () of
-                       L.Add => (next (); expr' (A.Add (lhs, term ())))
-                     | L.Sub => (next (); expr' (A.Sub (lhs, term ())))
+                       L.Add pos => (next (); expr' (A.Add (pos, lhs, term ())))
+                     | L.Sub pos => (next (); expr' (A.Sub (pos, lhs, term ())))
                      | _ => lhs
            else lhs)
 
-       and term' (lhs : A.t) : A.t =
+       and term' (lhs : 'a A.t) : 'a A.t =
            (log "term'";
            if has ()
               then case peek () of
-                       L.Mul => (next (); term' (A.Mul (lhs, factor ())))
-                     | L.Div => (next (); term' (A.Div (lhs, factor ())))
+                       L.Mul pos => (next (); term' (A.Mul (pos, lhs, factor ())))
+                     | L.Div pos => (next (); term' (A.Div (pos, lhs, factor ())))
                      | _ => lhs
            else lhs)
 
-       and factor () : A.t =
+       and factor () : 'a A.t =
            (log "factor";
             case getNext () of
-                SOME L.LParen => let val ast = exprs ()
-                                 in case getNext () of
-                                        SOME L.RParen => ast
-                                      | SOME t => expected ")" t
-                                      | _ => err "unexpected end of input, expected )"
-                                 end
-              | SOME (L.Num n) => A.Num n
-              | SOME (L.Bool b) => A.Bool b
-              | SOME (L.Id s) => A.Id s
+                SOME (L.LParen _) => let val ast = exprs ()
+                                     in case getNext () of
+                                            SOME (L.RParen _) => ast
+                                          | SOME t => expected ")" t
+                                          | _ => err "unexpected end of input, expected )"
+                                     end
+              | SOME (L.Num (pos, n)) => A.Num (pos, n)
+              | SOME (L.Bool (pos, b)) => A.Bool (pos, b)
+              | SOME (L.Id (pos, s)) => A.Id (pos, s)
               | SOME t => expected "bool, num or id" t
               | _ => err "unexpected end of input, expected bool, num or id")
 
-       and exprs () : A.t =
+       and exprs () : 'a A.t =
            let
               (* check if token is in FIRST(expr) *)
-              fun FIRSTexpr (L.Id _) = true
-                | FIRSTexpr (L.Num _) = true
-                | FIRSTexpr (L.Bool _) = true
-                | FIRSTexpr L.If = true
-                | FIRSTexpr L.Fn = true
-                | FIRSTexpr L.Let = true
-                | FIRSTexpr L.LParen = true
-                | FIRSTexpr _ = false
+              fun FIRSTexpr (L.Id (pos, _))   = SOME pos
+                | FIRSTexpr (L.Num (pos, _))  = SOME pos
+                | FIRSTexpr (L.Bool (pos, _)) = SOME pos
+                | FIRSTexpr (L.If pos)        = SOME pos
+                | FIRSTexpr (L.Fn pos)        = SOME pos
+                | FIRSTexpr (L.Let pos)       = SOME pos
+                | FIRSTexpr (L.LParen pos)    = SOME pos
+                | FIRSTexpr _                 = NONE
 
               val ast1 = expr ()
            in
-              if has () andalso FIRSTexpr (peek ())
-                 then A.App (ast1, expr ())
+              if has ()
+                 then case FIRSTexpr (peek ()) of
+                          SOME pos => A.App (pos, ast1, expr ())
+                        | NONE => ast1
               else ast1
            end
     in
