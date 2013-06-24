@@ -13,7 +13,6 @@ is
     src/typeinf.sml
     src/stringmap.sml
     src/type.sml
-    src/bimap.sml
 
     src/lexer.sml
     src/parser.sml
