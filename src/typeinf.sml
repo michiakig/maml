@@ -29,16 +29,15 @@ structure ConstrSet = BinarySetFn(
                | ord => ord
    end)
 
+fun showConstr ({lhs, rhs} : constraint) =
+    "{" ^ T.show lhs ^ "," ^ T.show rhs ^ "}"
 
-   fun showConstr ({lhs, rhs} : constraint) =
-       "{" ^ T.show lhs ^ "," ^ T.show rhs ^ "}"
-
-   structure ShowConstraintSet =
-      SetShowFn(structure Set = ConstrSet
-                structure Show = struct
-                   type t = constraint
-                   val show = showConstr
-                end)
+structure ShowConstraintSet =
+   SetShowFn(structure Set = ConstrSet
+             structure Show = struct
+                type t = constraint
+                val show = showConstr
+             end)
 
 local
    val tVarId = ref 0
