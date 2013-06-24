@@ -67,10 +67,10 @@ fun subst (e1 : 'a A.t, x : string, e2 : string) : 'a A.t =
       | id as A.Id (a, x') => if x = x' then A.Id (a, e2) else id
 
       (* have to be careful about bound vars *)
-      | f as A.Fn (a, x', e) =>
+      | f as A.Fn (a', a, x', e) =>
         if x = x'
            then f
-        else A.Fn (a, x', subst (e, x, e2))
+        else A.Fn (a', a, x', subst (e, x, e2))
 
       | l as A.Let (a, x', e3, e4)  =>
         if x = x'

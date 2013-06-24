@@ -77,10 +77,11 @@ fun parse (toks : 'a L.t list) : 'a A.t =
               | L.Fn pos =>
                 (adv ()
                 ; case peek () of
-                      L.Id (_, x) => (adv ()
+                      L.Id (pos', x) => (adv ()
                                      ; case peek () of
                                            L.Arrow _ => (adv ()
-                                                        ; A.Fn (pos, x, exprs ()))
+                                                        (* FIXME: two ids for Fn *)
+                                                        ; A.Fn (pos', pos, x, exprs ()))
                                          | t => expected "=>" t)
                     | t => err ("expected formal arg in fn expr, got " ^ L.show t))
               | L.Let pos =>

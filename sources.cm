@@ -1,6 +1,5 @@
 Library
     structure Type
-    structure Syntax
     structure TypeInf
 
     structure Lexer
@@ -13,7 +12,6 @@ Library
 is
     src/typeinf.sml
     src/stringmap.sml
-    src/syntax.sml
     src/type.sml
     src/bimap.sml
 

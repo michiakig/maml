@@ -47,6 +47,8 @@ end
 
 end
 
+type pos = {line : int, col : int}
+
 (* actual AST type, with polymorphic info *)
 datatype 'a t = Num of 'a * int
               | Bool of 'a * bool
@@ -57,7 +59,9 @@ datatype 'a t = Num of 'a * int
               | Sub of 'a * 'a t * 'a t
               | App of 'a * 'a t * 'a t
               | If of 'a * 'a t * 'a t * 'a t
-              | Fn of 'a * string * 'a t
+
+              (* one info field for bound var, one for self *)
+              | Fn of 'a * 'a * string * 'a t
               | Let of 'a * string * 'a t * 'a t
               | Match of 'a * 'a t * (Pattern.Complex.t * 'a t) list
 
@@ -71,7 +75,7 @@ fun toMono (Num (_, n))            = Mono.Num n
   | toMono (Mul (_, e1, e2))       = Mono.Mul (toMono e1, toMono e2)
   | toMono (Div (_, e1, e2))       = Mono.Div (toMono e1, toMono e2)
   | toMono (If (_, e1, e2, e3))    = Mono.If (toMono e1, toMono e2, toMono e3)
-  | toMono (Fn (_, x, e))          = Mono.Fn (x, toMono e)
+  | toMono (Fn (_, _, x, e))       = Mono.Fn (x, toMono e)
   | toMono (App (_, e1, e2))       = Mono.App (toMono e1, toMono e2)
   | toMono (Let (_, x, e1, e2))    = Mono.Let (x, toMono e1, toMono e2)
   | toMono (Match (_, e, clauses)) = Mono.Match (toMono e, map (fn (pat, e) => (pat, toMono e)) clauses)
@@ -85,7 +89,8 @@ fun getInfo (Num (info, _))       = info
   | getInfo (Mul (info, _, _))    = info
   | getInfo (Div (info, _, _))    = info
   | getInfo (If (info, _, _, _))  = info
-  | getInfo (Fn (info, _, _))     = info
+  (* FIXME: two ids for Fn *)
+  | getInfo (Fn (_, info, _, _))  = info
   | getInfo (App (info, _, _))    = info
   | getInfo (Let (info, _, _, _)) = info
   | getInfo (Match (info, _, _))  = info
@@ -106,7 +111,7 @@ and show' (Num (_, n))            = "Num " ^ Int.toString n
   | show' (Div (_, lhs, rhs))     = "Div (" ^ show' lhs ^ "," ^ show' rhs ^ ")"
   | show' (App (_, e1, e2))       = "App (" ^ show' e1 ^ "," ^ show' e2 ^ ")"
   | show' (If (_, e1, e2, e3))    = "If (" ^ show' e1 ^ "," ^ show' e2 ^ "," ^ show' e3 ^ ")"
-  | show' (Fn (_, x, e))          = "Fn (" ^ x ^ "," ^ show' e ^ ")"
+  | show' (Fn (_, _, x, e))       = "Fn (" ^ x ^ "," ^ show' e ^ ")"
   | show' (Let (_, x, e1, e2))    = "Let (" ^ x ^ "," ^ show' e1 ^ "," ^ show' e2 ^ ")"
   | show' (Match (_, e, clauses)) = "Match (" ^ show' e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
 

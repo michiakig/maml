@@ -112,7 +112,7 @@ exception LexicalError of string
 (*
  * list-based lexical analyzer, probably pretty slow
  *)
-fun lexStr (s : string) : {line : int, col : int} t list =
+fun lexStr (s : string) : Abstract.pos t list =
     let
        val line = ref 1
        val col = ref 1
