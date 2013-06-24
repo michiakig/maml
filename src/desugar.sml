@@ -163,4 +163,9 @@ and matchCtor ((u::us) : 'a A.t list, (q::qs) : 'a eqxn list, def : 'a A.t) : 'a
   | matchCtor ([], _, _) = raise Assert "matchCtor: empty list of exprs"
   | matchCtor (_, [], _) = raise Assert "matchCtor: empty list of eqxns"
 
+fun mkEqxn (pat, e) = ([pat], e)
+
+fun desugar (A.Match (a, e, clauses), def) = match ([e], map mkEqxn clauses, def)
+  | desugar _ = raise Assert "desugar: not implemented yet"
+
 end
