@@ -9,18 +9,18 @@ fun test _ = (
    check (List.getItem, SOME (Show.pair (fn x => x, Show.list L.show)))
          ("lexer", pred (fn (s, toks) => (L.lexStr s) = toks))
          [
-           ("0",                        [L.Num 0])
-          ,("fn x=>x",                  [L.Fn, L.Id "x", L.Arrow, L.Id "x"])
-          ,("fn x => x",                [L.Fn, L.Id "x", L.Arrow, L.Id "x"])
-          ,("if 1 then 2 else 3",       [L.If, L.Num 1, L.Then, L.Num 2, L.Else, L.Num 3])
-          ,("if foo then bar else baz", [L.If, L.Id "foo", L.Then, L.Id "bar", L.Else, L.Id "baz"])
-          ,("let x = 0 in x + x",       [L.Let, L.Id "x", L.Eqls, L.Num 0, L.In, L.Id "x", L.Add, L.Id "x"])
-          ,("let x=0 in x + x",         [L.Let, L.Id "x", L.Eqls, L.Num 0, L.In, L.Id "x", L.Add, L.Id "x"])
+           ("0",                        [L.Num ({line=1,col=1}, 0)])
+          ,("fn x=>x",                  [L.Fn {line=1,col=1}, L.Id ({line=1,col=4},"x"), L.Arrow {line=1,col=5}, L.Id ({line=1,col=7},"x")])
+          ,("fn x => x",                [L.Fn {line=1,col=1}, L.Id ({line=1,col=4},"x"), L.Arrow {line=1,col=6}, L.Id ({line=1,col=9},"x")])
+          ,("if 1 then 2 else 3",       [L.If {line=1,col=1}, L.Num ({line=1,col=4}, 1), L.Then {line=1,col=6}, L.Num ({line=1,col=11}, 2), L.Else {line=1,col=13}, L.Num ({line=1,col=18},3)])
+          ,("if foo then bar else baz", [L.If {line=1,col=1}, L.Id ({line=1,col=4},"foo"), L.Then {line=1,col=8}, L.Id ({line=1,col=13},"bar"), L.Else {line=1,col=17}, L.Id ({line=1,col=22},"baz")])
+          ,("let x = 0 in x + x",       [L.Let {line=1,col=1}, L.Id ({line=1,col=5},"x"), L.Eqls {line=1,col=7}, L.Num ({line=1,col=9},0), L.In {line=1,col=11}, L.Id ({line=1,col=14},"x"), L.Add {line=1,col=16}, L.Id ({line=1,col=18},"x")])
+          ,("let x=0 in x + x",         [L.Let {line=1,col=1}, L.Id ({line=1,col=5},"x"), L.Eqls {line=1,col=6}, L.Num ({line=1,col=7},0), L.In {line=1,col=9}, L.Id ({line=1,col=12},"x"), L.Add {line=1,col=14}, L.Id ({line=1,col=16},"x")])
 
           ,("match x with (Nil) => 0 | (Cons y ys) => 1",
-            [L.Match, L.Id "x", L.With, L.LParen, L.Ctor "Nil", L.RParen, L.Arrow, L.Num 0, L.Bar, L.LParen, L.Ctor "Cons", L.Id "y", L.Id "ys", L.RParen, L.Arrow, L.Num 1])
+            [L.Match {line=1,col=1}, L.Id ({line=1,col=7},"x"), L.With {line=1,col=9}, L.LParen {line=1,col=14}, L.Ctor ({line=1,col=15},"Nil"), L.RParen {line=1,col=18}, L.Arrow {line=1,col=20}, L.Num ({line=1,col=23},0), L.Bar {line=1,col=25}, L.LParen {line=1,col=27}, L.Ctor ({line=1,col=28},"Cons"), L.Id ({line=1,col=33},"y"), L.Id ({line=1,col=35},"ys"), L.RParen {line=1,col=37}, L.Arrow {line=1,col=39}, L.Num ({line=1,col=42},1)])
 
-          ,("match x with 1 => 1 | 2 => 2", [L.Match, L.Id "x", L.With, L.Num 1, L.Arrow, L.Num 1, L.Bar, L.Num 2, L.Arrow, L.Num 2])
+          ,("match x with 1 => 1 | 2 => 2", [L.Match {line=1,col=1}, L.Id ({line=1,col=7},"x"), L.With {line=1,col=9}, L.Num ({line=1,col=14},1), L.Arrow {line=1,col=16}, L.Num ({line=1,col=19},1), L.Bar {line=1,col=21}, L.Num ({line=1,col=23},2), L.Arrow {line=1,col=25}, L.Num ({line=1,col=28},2)])
          ])
 
 end

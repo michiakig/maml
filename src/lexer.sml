@@ -1,78 +1,78 @@
 structure Lexer : sig
 
 (* TODO: attach line & column numbers *)
-datatype t = Num of int
-           | Id of string
-           | Ctor of string
-           | Bool of bool
-           | LParen
-           | RParen
-           | Add
-           | Mul
-           | Div
-           | Sub
-           | If
-           | Then
-           | Else
-           | Fn
-           | Arrow
-           | Let
-           | Eqls
-           | In
-           | Match
-           | With
-           | Bar
+datatype 'a t = Num of 'a * int
+              | Id of 'a * string
+              | Ctor of 'a * string
+              | Bool of 'a * bool
+              | LParen of 'a
+              | RParen of 'a
+              | Add of 'a
+              | Mul of 'a
+              | Div of 'a
+              | Sub of 'a
+              | If of 'a
+              | Then of 'a
+              | Else of 'a
+              | Fn of 'a
+              | Arrow of 'a
+              | Let of 'a
+              | Eqls of 'a
+              | In of 'a
+              | Match of 'a
+              | With of 'a
+              | Bar of 'a
 
 (* TODO: lexFile : filename -> t list *)
-val lexStr : string -> t list
-val show : t -> string
+val lexStr : string -> {line : int, col: int} t list
+val show : 'a t -> string
 
 end =
 struct
 
-datatype t = Num of int
-           | Id of string
-           | Ctor of string
-           | Bool of bool
-           | LParen
-           | RParen
-           | Add
-           | Mul
-           | Div
-           | Sub
-           | If
-           | Then
-           | Else
-           | Fn
-           | Arrow
-           | Let
-           | Eqls
-           | In
-           | Match
-           | With
-           | Bar
+datatype 'a t = Num of 'a * int
+              | Id of 'a * string
+              | Ctor of 'a * string
+              | Bool of 'a * bool
+              | LParen of 'a
+              | RParen of 'a
+              | Add of 'a
+              | Mul of 'a
+              | Div of 'a
+              | Sub of 'a
+              | If of 'a
+              | Then of 'a
+              | Else of 'a
+              | Fn of 'a
+              | Arrow of 'a
+              | Let of 'a
+              | Eqls of 'a
+              | In of 'a
+              | Match of 'a
+              | With of 'a
+              | Bar of 'a
 
-fun show (Num n) = "Num " ^ Int.toString n
-  | show (Bool b) = "Bool " ^ Bool.toString b
-  | show (Id s) = "Id " ^ s
-  | show (Ctor s) = "Ctor " ^ s
-  | show LParen = "LParen"
-  | show RParen = "RParen"
-  | show Add = "Add"
-  | show Mul = "Mul"
-  | show Div = "Div"
-  | show Sub = "Sub"
-  | show If = "If"
-  | show Else = "Else"
-  | show Then = "Then"
-  | show Fn = "Fn"
-  | show Arrow = "Arrow"
-  | show Let = "Let"
-  | show Eqls = "Eqls"
-  | show In = "In"
-  | show Match = "Match"
-  | show With = "With"
-  | show Bar = "Bar"
+fun show (Num (_, n)) = "Num " ^ Int.toString n
+  | show (Bool (_, b)) = "Bool " ^ Bool.toString b
+  | show (Id (_, s)) = "Id " ^ s
+  | show (Ctor (_, s)) = "Ctor " ^ s
+  | show (LParen _) = "LParen"
+  | show (RParen _) = "RParen"
+  | show (Add _) = "Add"
+  | show (Mul _) = "Mul"
+  | show (Div _) = "Div"
+  | show (Sub _) = "Sub"
+  | show (If _) = "If"
+  | show (Else _) = "Else"
+  | show (Then _) = "Then"
+  | show (Fn _) = "Fn"
+  | show (Arrow _) = "Arrow"
+  | show (Let _) = "Let"
+  | show (Eqls _) = "Eqls"
+  | show (In _) = "In"
+  | show (Match _) = "Match"
+  | show (With _) = "With"
+  | show (Bar _) = "Bar"
 
 fun takeWhile p xs =
     let
@@ -89,7 +89,7 @@ fun getDigit chars =
     let
        val (numStr, rest) = takeWhile Char.isDigit chars
     in
-       (Int.fromString (String.implode numStr), rest)
+       (Int.fromString (String.implode numStr), length numStr, rest)
     end
 
 fun getWord chars =
@@ -112,41 +112,48 @@ exception LexicalError of string
 (*
  * list-based lexical analyzer, probably pretty slow
  *)
-fun lexStr (s : string) : t list =
+fun lexStr (s : string) : {line : int, col : int} t list =
     let
-       fun lexStr' (acc, #"(" :: rest) = lexStr' (LParen :: acc, rest)
-         | lexStr' (acc, #")" :: rest) = lexStr' (RParen :: acc, rest)
-         | lexStr' (acc, #"+" :: rest) = lexStr' (Add :: acc, rest)
-         | lexStr' (acc, #"-" :: rest) = lexStr' (Sub :: acc, rest)
-         | lexStr' (acc, #"*" :: rest) = lexStr' (Mul :: acc, rest)
-         | lexStr' (acc, #"/" :: rest) = lexStr' (Div :: acc, rest)
-         | lexStr' (acc, #"|" :: rest) = lexStr' (Bar :: acc, rest)
-         | lexStr' (acc, #"=" :: #">" :: rest) = lexStr' (Arrow :: acc, rest)
-         | lexStr' (acc, #"=" :: rest) = lexStr' (Eqls :: acc, rest)
+       val line = ref 1
+       val col = ref 1
+       fun get () = {line = !line, col = !col}
+       fun incrLine n = get () before line := !line + n
+       fun incrCol n = get () before col := !col + n
+
+       fun lexStr' (acc, #"(" :: rest) = lexStr' (LParen (incrCol 1) :: acc, rest)
+         | lexStr' (acc, #")" :: rest) = lexStr' (RParen (incrCol 1):: acc, rest)
+         | lexStr' (acc, #"+" :: rest) = lexStr' (Add (incrCol 1) :: acc, rest)
+         | lexStr' (acc, #"-" :: rest) = lexStr' (Sub (incrCol 1) :: acc, rest)
+         | lexStr' (acc, #"*" :: rest) = lexStr' (Mul (incrCol 1) :: acc, rest)
+         | lexStr' (acc, #"/" :: rest) = lexStr' (Div (incrCol 1) :: acc, rest)
+         | lexStr' (acc, #"|" :: rest) = lexStr' (Bar (incrCol 1) :: acc, rest)
+         | lexStr' (acc, #"=" :: #">" :: rest) = lexStr' (Arrow (incrCol 2) :: acc, rest)
+         | lexStr' (acc, #"=" :: rest) = lexStr' (Eqls (incrCol 1) :: acc, rest)
+         | lexStr' (acc, #"\n" :: rest) = (incrLine 1; lexStr' (acc, rest))
          | lexStr' (acc, all as c :: cs) =
            if Char.isDigit c
               then case getDigit all of
-                       (SOME n, rest) => lexStr' ((Num n) :: acc, rest)
-                     | (NONE, _) =>
+                       (SOME n, len, rest) => lexStr' (Num (incrCol len, n) :: acc, rest)
+                     | (NONE, _, _) =>
                        raise LexicalError ("error lexing num: " ^ String.implode all)
            else if Char.isSpace c
-                   then lexStr' (acc, cs)
+                   then (incrCol 1; lexStr' (acc, cs))
                 else (case getWord all of
-                         ("if", rest) => lexStr' (If :: acc, rest)
-                       | ("then", rest) => lexStr' (Then :: acc, rest)
-                       | ("else", rest) => lexStr' (Else :: acc, rest)
-                       | ("true", rest) => lexStr' (Bool true :: acc, rest)
-                       | ("false", rest) => lexStr' (Bool false :: acc, rest)
-                       | ("fn", rest) => lexStr' (Fn :: acc, rest)
-                       | ("let", rest) => lexStr' (Let :: acc, rest)
-                       | ("in", rest) => lexStr' (In :: acc, rest)
-                       | ("match", rest) => lexStr' (Match :: acc, rest)
-                       | ("with", rest) => lexStr' (With :: acc, rest)
+                         ("if", rest) => lexStr' (If (incrCol 2) :: acc, rest)
+                       | ("then", rest) => lexStr' (Then (incrCol 4) :: acc, rest)
+                       | ("else", rest) => lexStr' (Else (incrCol 4) :: acc, rest)
+                       | ("true", rest) => lexStr' (Bool (incrCol 4, true) :: acc, rest)
+                       | ("false", rest) => lexStr' (Bool (incrCol 5, false) :: acc, rest)
+                       | ("fn", rest) => lexStr' (Fn (incrCol 2) :: acc, rest)
+                       | ("let", rest) => lexStr' (Let (incrCol 3) :: acc, rest)
+                       | ("in", rest) => lexStr' (In (incrCol 2) :: acc, rest)
+                       | ("match", rest) => lexStr' (Match (incrCol 5) :: acc, rest)
+                       | ("with", rest) => lexStr' (With (incrCol 4) :: acc, rest)
                        | ("", _) =>
                          raise LexicalError ("error lexing: " ^ String.implode all)
                        | (id, rest) => if Char.isUpper (String.sub (id, 0))
-                                          then lexStr' ((Ctor id) :: acc, rest)
-                                       else lexStr' ((Id id) :: acc, rest))
+                                          then lexStr' ((Ctor (incrCol (String.size id), id)) :: acc, rest)
+                                       else lexStr' ((Id (incrCol (String.size id), id)) :: acc, rest))
          | lexStr' (acc, []) = rev acc
     in
        lexStr' ([], String.explode s)
