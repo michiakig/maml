@@ -21,6 +21,8 @@ fun test _ = (
             [L.Match {line=1,col=1}, L.Id ({line=1,col=7},"x"), L.With {line=1,col=9}, L.LParen {line=1,col=14}, L.Ctor ({line=1,col=15},"Nil"), L.RParen {line=1,col=18}, L.Arrow {line=1,col=20}, L.Num ({line=1,col=23},0), L.Bar {line=1,col=25}, L.LParen {line=1,col=27}, L.Ctor ({line=1,col=28},"Cons"), L.Id ({line=1,col=33},"y"), L.Id ({line=1,col=35},"ys"), L.RParen {line=1,col=37}, L.Arrow {line=1,col=39}, L.Num ({line=1,col=42},1)])
 
           ,("match x with 1 => 1 | 2 => 2", [L.Match {line=1,col=1}, L.Id ({line=1,col=7},"x"), L.With {line=1,col=9}, L.Num ({line=1,col=14},1), L.Arrow {line=1,col=16}, L.Num ({line=1,col=19},1), L.Bar {line=1,col=21}, L.Num ({line=1,col=23},2), L.Arrow {line=1,col=25}, L.Num ({line=1,col=28},2)])
+
+          ,("datatype 'a tree = Leaf of 'a | Branch of 'a tree * 'a tree", [L.Datatype {line=1,col=1}, L.TypeVar ({line=1,col=10}, "a"), L. Id ({line=1,col=13}, "tree"), L.Eqls {line=1,col=18}, L.Ctor ({line=1,col=20}, "Leaf"), L.Of {line=1,col=25}, L.TypeVar ({line=1,col=28}, "a"), L.Bar {line=1,col=31}, L.Ctor ({line=1,col=33}, "Branch"), L.Of {line=1,col=40}, L.TypeVar ({line=1,col=43}, "a"), L.Id ({line=1,col=46}, "tree"), L.Mul {line=1,col=51}, L.TypeVar ({line=1,col=53}, "a"), L.Id ({line=1,col=56}, "tree")])
          ])
 
 end

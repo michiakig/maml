@@ -23,6 +23,12 @@ datatype 'a t = Num of 'a * int
               | With of 'a
               | Bar of 'a
 
+              | Datatype of 'a
+              | Of of 'a
+              | Val of 'a
+              | TypeVar of 'a * string
+              | Comma of 'a
+
 (* TODO: lexFile : filename -> t list *)
 val lexStr : string -> {line : int, col: int} t list
 val show : 'a t -> string
@@ -52,6 +58,12 @@ datatype 'a t = Num of 'a * int
               | With of 'a
               | Bar of 'a
 
+              | Datatype of 'a
+              | Of of 'a
+              | Val of 'a
+              | TypeVar of 'a * string
+              | Comma of 'a
+
 fun show (Num (_, n)) = "Num " ^ Int.toString n
   | show (Bool (_, b)) = "Bool " ^ Bool.toString b
   | show (Id (_, s)) = "Id " ^ s
@@ -73,6 +85,11 @@ fun show (Num (_, n)) = "Num " ^ Int.toString n
   | show (Match _) = "Match"
   | show (With _) = "With"
   | show (Bar _) = "Bar"
+
+  | show (Datatype _) = "Datatype"
+  | show (Of _) = "Of"
+  | show (TypeVar (_, tv)) = "TypeVar " ^ tv
+  | show (Comma _) = "Comma"
 
 fun takeWhile p xs =
     let
@@ -101,6 +118,8 @@ fun getWord chars =
          | notDelim #"=" = false
          | notDelim #"(" = false
          | notDelim #")" = false
+         | notDelim #"," = false
+         | notDelim #"|" = false
          | notDelim ch = not (Char.isSpace ch)
        val (word, rest) = takeWhile notDelim chars
     in
@@ -129,6 +148,7 @@ fun lexStr (s : string) : Abstract.pos t list =
          | lexStr' (acc, #"|" :: rest) = lexStr' (Bar (incrCol 1) :: acc, rest)
          | lexStr' (acc, #"=" :: #">" :: rest) = lexStr' (Arrow (incrCol 2) :: acc, rest)
          | lexStr' (acc, #"=" :: rest) = lexStr' (Eqls (incrCol 1) :: acc, rest)
+         | lexStr' (acc, #"," :: rest) = lexStr' (Comma (incrCol 1) :: acc, rest)
          | lexStr' (acc, #"\n" :: rest) = (incrLine 1; lexStr' (acc, rest))
          | lexStr' (acc, all as c :: cs) =
            if Char.isDigit c
@@ -149,11 +169,17 @@ fun lexStr (s : string) : Abstract.pos t list =
                        | ("in", rest) => lexStr' (In (incrCol 2) :: acc, rest)
                        | ("match", rest) => lexStr' (Match (incrCol 5) :: acc, rest)
                        | ("with", rest) => lexStr' (With (incrCol 4) :: acc, rest)
+                       | ("datatype", rest) => lexStr' (Datatype (incrCol 8) :: acc, rest)
+                       | ("of", rest) => lexStr' (Of (incrCol 2) :: acc, rest)
+                       | ("val", rest) => lexStr' (Val (incrCol 3) :: acc, rest)
                        | ("", _) =>
                          raise LexicalError ("error lexing: " ^ String.implode all)
-                       | (id, rest) => if Char.isUpper (String.sub (id, 0))
-                                          then lexStr' ((Ctor (incrCol (String.size id), id)) :: acc, rest)
-                                       else lexStr' ((Id (incrCol (String.size id), id)) :: acc, rest))
+                       | (id, rest) =>
+                         if Char.isUpper (String.sub (id, 0))
+                            then lexStr' ((Ctor (incrCol (String.size id), id)) :: acc, rest)
+                         else if String.sub (id, 0) = #"'"
+                            then lexStr' ((TypeVar (incrCol (String.size id), String.substring (id, 1, size id - 1))) :: acc, rest)
+                         else lexStr' ((Id (incrCol (String.size id), id)) :: acc, rest))
          | lexStr' (acc, []) = rev acc
     in
        lexStr' ([], String.explode s)
