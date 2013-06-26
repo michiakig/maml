@@ -17,6 +17,7 @@ datatype 'a t = Num of 'a * int
               | Fn of 'a
               | Arrow of 'a
               | Let of 'a
+              | End of 'a
               | Eqls of 'a
               | In of 'a
               | Match of 'a
@@ -52,6 +53,7 @@ datatype 'a t = Num of 'a * int
               | Fn of 'a
               | Arrow of 'a
               | Let of 'a
+              | End of 'a
               | Eqls of 'a
               | In of 'a
               | Match of 'a
@@ -80,6 +82,7 @@ fun show (Num (_, n)) = "Num " ^ Int.toString n
   | show (Fn _) = "Fn"
   | show (Arrow _) = "Arrow"
   | show (Let _) = "Let"
+  | show (End _) = "End"
   | show (Eqls _) = "Eqls"
   | show (In _) = "In"
   | show (Match _) = "Match"
@@ -167,6 +170,7 @@ fun lexStr (s : string) : Abstract.pos t list =
                        | ("fn", rest) => lexStr' (Fn (incrCol 2) :: acc, rest)
                        | ("let", rest) => lexStr' (Let (incrCol 3) :: acc, rest)
                        | ("in", rest) => lexStr' (In (incrCol 2) :: acc, rest)
+                       | ("end", rest) => lexStr' (End (incrCol 3) :: acc, rest)
                        | ("match", rest) => lexStr' (Match (incrCol 5) :: acc, rest)
                        | ("with", rest) => lexStr' (With (incrCol 4) :: acc, rest)
                        | ("datatype", rest) => lexStr' (Datatype (incrCol 8) :: acc, rest)
