@@ -20,18 +20,6 @@
  *   pattern -> (ctor pattern')
  *   pattern' -> pattern pattern'
  *   pattern' ->
- *   expr   -> term expr'
- *   expr'  -> + term expr'
- *   expr'  -> - term expr'
- *   expr'  ->
- *   term   -> factor term'
- *   term'  -> * factor term'
- *   term'  -> / factor term'
- *   term'  ->
- *   factor -> ( exprs )
- *   factor -> id
- *   factor -> num
- *   factor -> bool
  *)
 structure Parser : sig 
 
@@ -62,6 +50,7 @@ fun getBinop (L.Add _) = A.Add
   | getBinop (L.Sub _) = A.Sub
   | getBinop (L.Mul _) = A.Mul
   | getBinop (L.Div _) = A.Div
+  | getBinop _ = raise Match
 
 (*
  * Given list of tokens, return a parse tree, 'a will be some kind of position record, but the parser doesn't really care about the concrete type
@@ -77,8 +66,18 @@ fun parse (toks : 'a L.t list) : 'a A.t =
        fun err s = raise SyntaxError ("err " ^ s)
        fun expected s t = raise SyntaxError ("expected " ^ s ^ ", got " ^ L.show t)
 
+       fun getPrec () : int =
+           (if has ()
+               then (case peek () of
+                         L.Add _ => 1
+                       | L.Sub _ => 1
+                       | L.Mul _ => 2
+                       | L.Div _ => 2
+                       | _ => 0)
+            else 0)
+
        (* flip this to print the grammar productions at each step *)
-       val debug = true
+       val debug = false
        fun log s =
            let val t = if has () then L.show (peek ()) else ".."
            in if debug
@@ -122,7 +121,7 @@ fun parse (toks : 'a L.t list) : 'a A.t =
                        | t => expected "with" t
                   end)
 
-              | _ => infexp ())
+              | _ => infexp 0)
 
        and clauses () : (Pattern.Complex.t * 'a A.t) list =
            (log "clauses";
@@ -166,17 +165,30 @@ fun parse (toks : 'a L.t list) : 'a A.t =
                        | _ => []
              else [])
 
-       and infexp () : 'a A.t =
+       and infexp (prec : int) : 'a A.t =
            (log "infexp";
-            infexp' (appexp ()))
+            let
+               val lhs = appexp ()
+            in
+               if has () andalso isBinop (peek ())
+                  then infexp' (prec, lhs)
+               else lhs
+            end)
 
-       and infexp' (lhs : 'a A.t) : 'a A.t =
+       and infexp' (prec : int, lhs : 'a A.t) : 'a A.t =
            (log "infexp'";
-            if has () andalso isBinop (peek ())
-               then let val t = peek ()
-                    in (adv (); infexp' (A.Infix (A.getInfo lhs, getBinop t, lhs, infexp ())))
-                    end
-            else lhs)
+            let
+               val prec' = getPrec ()
+            in
+               if prec < prec'
+                  then let val t = next ()
+                           (* TODO: check if t is a binop *)
+                           val lhs = A.Infix (A.getInfo lhs, getBinop t, lhs,
+                                              infexp prec')
+                       in infexp' (prec, lhs)
+                       end
+               else lhs
+            end)
 
        and atexp () : 'a A.t =
            (log "atexp";

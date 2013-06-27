@@ -57,10 +57,7 @@ fun subst (e1 : 'a A.t, x : string, e2 : string) : 'a A.t =
     case e1 of
         n as A.Num _ => n
       | b as A.Bool _ => b
-      | A.Add (a, e3, e4) => A.Add (a, subst (e3, x, e2), subst (e4, x, e2))
-      | A.Mul (a, e3, e4) => A.Mul (a, subst (e3, x, e2), subst (e4, x, e2))
-      | A.Div (a, e3, e4) => A.Div (a, subst (e3, x, e2), subst (e4, x, e2))
-      | A.Sub (a, e3, e4) => A.Sub (a, subst (e3, x, e2), subst (e4, x, e2))
+      | A.Infix (a, oper, e3, e4) => A.Infix (a, oper, subst (e3, x, e2), subst (e4, x, e2))
       | A.App (a, e3, e4) => A.App (a, subst (e3, x, e2), subst (e4, x, e2))
       | A.If (a, e3, e4, e5) => A.If (a, subst (e3, x, e2), subst (e4, x, e2), subst (e5, x, e2))
 

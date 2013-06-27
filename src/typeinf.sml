@@ -55,10 +55,7 @@ in
 
           fun a (_, A.Num (pos, n)) = A.Num (g pos, n)
             | a (_, A.Bool (pos, b)) = A.Bool (g pos, b)
-            | a (env, A.Add (pos, e1, e2)) = A.Add (g pos, a (env, e1), a (env, e2))
-            | a (env, A.Sub (pos, e1, e2)) = A.Sub (g pos, a (env, e1), a (env, e2))
-            | a (env, A.Mul (pos, e1, e2)) = A.Mul (g pos, a (env, e1), a (env, e2))
-            | a (env, A.Div (pos, e1, e2)) = A.Div (g pos, a (env, e1), a (env, e2))
+            | a (env, A.Infix (pos, bin, e1, e2)) = A.Infix (g pos, bin, a (env, e1), a (env, e2))
 
             | a (env, A.App (pos, e1, e2)) = A.App (g pos, a (env, e1), a (env, e2))
             | a (env, A.If (pos, e1, e2, e3)) = A.If (g pos, a (env, e1), a (env, e2), a (env, e3))
@@ -79,16 +76,13 @@ in
        end
 end
 
-fun gettv (A.Num ({tv, ...} : info, _)) = tv
-  | gettv (A.Bool ({tv, ...}, _)) = tv
-  | gettv (A.Id ({tv, ...}, _)) = tv
-  | gettv (A.Add ({tv, ...}, _, _)) = tv
-  | gettv (A.Sub ({tv, ...}, _, _)) = tv
-  | gettv (A.Mul ({tv, ...}, _, _)) = tv
-  | gettv (A.Div ({tv, ...}, _, _)) = tv
-  | gettv (A.App ({tv, ...}, _, _)) = tv
-  | gettv (A.If ({tv, ...}, _, _, _)) = tv
-  | gettv (A.Fn (_, {tv, ...}, _, _)) = tv
+fun gettv (A.Num ({tv, ...} : info, _))  = tv
+  | gettv (A.Bool ({tv, ...}, _))        = tv
+  | gettv (A.Id ({tv, ...}, _))          = tv
+  | gettv (A.Infix ({tv, ...}, _, _, _)) = tv
+  | gettv (A.App ({tv, ...}, _, _))      = tv
+  | gettv (A.If ({tv, ...}, _, _, _))    = tv
+  | gettv (A.Fn (_, {tv, ...}, _, _))    = tv
 
 val rec genCon : (info A.t * ConstrSet.set) -> ConstrSet.set =
  fn (e, constrs) =>
@@ -114,14 +108,6 @@ val rec genCon : (info A.t * ConstrSet.set) -> ConstrSet.set =
            A.Bool ({tv, ...}, _) => ConstrSet.add (constrs, {lhs = T.Var tv, rhs = T.Bool})
 
          | A.Num ({tv, ...}, _) => ConstrSet.add (constrs, {lhs = T.Var tv, rhs = T.Num})
-
-         | A.Add (_, e1, e2) => builtin (e, e1, e2, T.Num, T.Num, T.Num, constrs)
-
-         | A.Sub (_, e1, e2) => builtin (e, e1, e2, T.Num, T.Num, T.Num, constrs)
-
-         | A.Mul (_, e1, e2) => builtin (e, e1, e2, T.Num, T.Num, T.Num, constrs)
-
-         | A.Div (_, e1, e2) => builtin (e, e1, e2, T.Num, T.Num, T.Num, constrs)
 
          | A.If ({tv, ...}, e1, e2, e3) =>
            let

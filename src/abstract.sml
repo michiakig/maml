@@ -36,6 +36,7 @@ and show' (Num (n))            = "Num " ^ Int.toString n
   | show' (Match (e, clauses)) = "Match (" ^ show' e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
 
   | show' (Case (e, clauses)) = "Case (" ^ show' e ^ "," ^ String.concatWith "|" (map showClause' clauses) ^ ")"
+  | show' (Infix (binop, e1, e2)) = "Infix (" ^ showBinop binop ^ "," ^ show' e1 ^ "," ^ show' e2 ^ ")"
 in
    val show = show'
 end
