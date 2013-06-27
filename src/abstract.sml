@@ -2,6 +2,12 @@ structure Abstract =
 struct
 
 datatype binop = Add | Sub | Mul | Div
+
+fun showBinop Add = "Add"
+  | showBinop Sub = "Sub"
+  | showBinop Mul = "Mul"
+  | showBinop Div = "Div"
+
 (*
  * monomorphic AST type mostly used for testing
  *)
@@ -86,11 +92,6 @@ fun getInfo (Num (info, _))       = info
   | getInfo (Case (info, _, _))   = info
 
 local
-
-fun showBinop Add = "Add"
-  | showBinop Sub = "Sub"
-  | showBinop Mul = "Mul"
-  | showBinop Div = "Div"
 
 fun showClause (pat, e) = "(" ^ Pattern.Complex.show pat ^ "=>" ^ show' e ^ ")"
 
