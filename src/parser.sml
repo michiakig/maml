@@ -1,26 +1,35 @@
-(* grammar:
+(* ML grammar, adapted from the Definition of Standard ML, appendix B fig 20 p63
 
- atexp -> constant | valid | let val id = <exp> in <exp> end | ( <exp> )
- appexp -> atexp appexp'
- appexp' -> e | atexp appexp'
- exp -> infixexp | if <exp> then <exp> else <exp> | fn <exp> | case <exp> of <exp>
+ atexp    ::= constant
+              <value id>
+              let val <id> = <exp> in <exp> end
+              ( <exp> )
+              <... records, selectors, tuples, sequences, lists ...>
 
- *   exprs  -> atexpr atexpr
- *   exprs  -> expr
- *   exprs' -> expr exprs'
- *   exprs' ->
- *   expr   -> if exprs then exprs else exprs
- *   expr   -> fn id => exprs
- *   expr   -> let id = exprs in exprs
- *   expr   -> match exprs with clause clauses
- *   clauses -> pattern => exprs clauses'
- *   clauses' -> | clauses
- *   clauses' ->
- *   pattern -> id
- *   pattern -> (ctor pattern')
- *   pattern' -> pattern pattern'
- *   pattern' ->
+ appexp   ::= <atexp> <appexp'>
+ appexp'  ::= <atexp> <appexp'>
+              <e>
+
+ infexp   ::= <appexp> <infexp'>
+ infexp'  ::= id <infexp> <infexp'>
+              <e>
+
+ exp      ::= <infexp>
+              if <exp> then <exp> else <exp>
+              match <exp> with <clauses>
+              fn <id> => <exp>
+
+ clauses  ::= <pattern> => <exp> <clauses'>
+ clauses' ::= | <clauses>
+ clauses'     <e>
+
+ pattern  ::= <id>
+ pattern      (<ctor> <pattern'>)
+ pattern' ::= <pattern> <pattern'>
+ pattern'     <e>
+
  *)
+
 structure Parser : sig 
 
 val parse : 'a Lexer.t list -> 'a Abstract.t
