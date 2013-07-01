@@ -7,7 +7,7 @@ structure Pat = Pattern.Complex
 fun test _ =
     let
        fun c name = check (List.getItem, SOME (Show.pair (fn x => x, M.show)))
-                           (name, pred (fn (s, ast) => (E.toMono (Parser.parse (Lexer.lexStr s))) = ast))
+                           (name, pred (fn (s, ast) => (E.toMono (Parser.parseExpr (Lexer.lexStr s))) = ast))
     in
        (
          c "parser/exprs"

@@ -7,7 +7,7 @@ structure T = Type
 
 fun test _ = (
    check (List.getItem, SOME (Show.pair (T.show, fn x => x)))
-         ("typeof", pred (fn (ty, s) => (TypeInf.typeof (Parser.parse (Lexer.lexStr s))) = ty))
+         ("typeof", pred (fn (ty, s) => (TypeInf.typeof (Parser.parseExpr (Lexer.lexStr s))) = ty))
          [
            (T.Num, "0")
           (* ,(T.Num, "0 + 1") *)

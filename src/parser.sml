@@ -32,7 +32,7 @@
 
 structure Parser : sig 
 
-val parse : 'a Token.t list -> 'a Expr.t
+val parseExpr : 'a Token.t list -> 'a Expr.t
 
 end =
 struct
@@ -60,9 +60,9 @@ fun getBinop (Token.Add _) = Expr.Add
   | getBinop _ = raise Match
 
 (*
- * Given list of tokens, return a parse tree, 'a will be some kind of position record, but the parser doesn't really care about the concrete type
+ * Given a list of tokens, parse one expression
  *)
-fun parse (toks : 'a Token.t list) : 'a Expr.t =
+fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
     let
        val rest = ref toks
        fun has () = not (null (!rest))
