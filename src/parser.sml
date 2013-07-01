@@ -259,20 +259,20 @@ fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
     *)
    structure Type =
    struct
-
-      type 'a binctor = 'a * 'a AST.Type.t * 'a AST.Type.t -> 'a AST.Type.t
-      type 'a unctor = 'a * 'a AST.Type.t -> 'a AST.Type.t
       datatype assoc = Left | Right
-      datatype 'a optyp = Prefix of int * 'a unctor | Infix of int * 'a binctor * assoc | Postfix of int * 'a unctor
    
       exception NoPrecedence of string
-      fun getPrec (Token.Mul _)    = Infix (60, fn (pos, AST.Type.Tuple (_, xs), y) => AST.Type.Tuple (pos, xs @ [y]) | (pos, x, y) => AST.Type.Tuple (pos, [x, y]), Left)
-        | getPrec (Token.TArrow _) = Infix (50, AST.Type.Arrow, Right)
+      fun getPrec (Token.Mul _)    = (60, fn (pos, AST.Type.Tuple (_, xs), y) => AST.Type.Tuple (pos, xs @ [y]) | (pos, x, y) => AST.Type.Tuple (pos, [x, y]), Left)
+        | getPrec (Token.TArrow _) = (50, AST.Type.Arrow, Right)
         | getPrec t                = raise NoPrecedence (Token.show t)
+
+      fun isInfix (Token.Mul _)    = true
+        | isInfix (Token.TArrow _) = true
+        | isInfix _                = false
    
       exception SyntaxError of string
    
-      fun parse (ts : 'a Token.t list) : 'a AST.Type.t =
+      fun parse (ts : 'a Token.t list) : 'a AST.Type.t * 'a Token.t list =
           let
              val rest = ref ts
              fun has () = not (null (!rest))
@@ -318,22 +318,25 @@ fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
                           case peek () of
                               SOME (Token.Id (pos, c)) => (eat (); infexp' (prec, AST.Type.Con (pos, c, lhs)))
                             | SOME t =>
-                              (case getPrec t of
-                                   Infix (prec', ctor, assoc) =>
-                                   if prec < prec'
-                                      then let val _ = eat ();
-                                               val prec'' = case assoc of Left => prec' | Right => prec' - 1
-                                               val lhs = ctor (Token.getInfo t, lhs, infexp prec'')
-                                           in infexp' (prec, lhs)
-                                           end
-                                   else lhs
-                                 | _ => raise SyntaxError "expected infix or postfix op")
+                              if isInfix t
+                              then
+                                 let val (prec', ctor, assoc) = getPrec t
+                                 in
+                                    if prec < prec'
+                                    then let val _ = eat ();
+                                             val prec'' = case assoc of Left => prec' | Right => prec' - 1
+                                             val lhs = ctor (Token.getInfo t, lhs, infexp prec'')
+                                         in infexp' (prec, lhs)
+                                         end
+                                    else lhs
+                                 end
+                              else lhs
                             | _ => lhs)
                   in
                      infexp' (prec, atom ())
                   end)
           in
-             infexp 0
+             (infexp 0, !rest)
           end
    end
 
