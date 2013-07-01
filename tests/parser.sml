@@ -1,33 +1,33 @@
 structure ParserTests =
 struct
 open QCheck
-structure A = Abstract
-structure M = Abstract.Mono
+structure E = Expr
+structure M = Expr.Mono
 structure Pat = Pattern.Complex
 fun test _ =
     let
        fun c name = check (List.getItem, SOME (Show.pair (fn x => x, M.show)))
-                           (name, pred (fn (s, ast) => (A.toMono (Parser.parse (Lexer.lexStr s))) = ast))
+                           (name, pred (fn (s, ast) => (E.toMono (Parser.parse (Lexer.lexStr s))) = ast))
     in
        (
          c "parser/exprs"
            [
              ("0",               M.Num 0)
             ,("foo",             M.Id "foo")
-            ,("1 + 2",           M.Infix (A.Add, M.Num 1, M.Num 2))
-            ,("1 * 2 + 3",       M.Infix (A.Add, M.Infix (A.Mul, M.Num 1, M.Num 2), M.Num 3))
-            ,("1 - 2 / 3",       M.Infix (A.Sub, M.Num 1, M.Infix (A.Div, M.Num 2, M.Num 3)))
-            ,("(1 - 2) * 3",     M.Infix (A.Mul, M.Infix (A.Sub, M.Num 1, M.Num 2), M.Num 3))
-            ,("(1 - 2) * (3)",   M.Infix (A.Mul, M.Infix (A.Sub, M.Num 1, M.Num 2), M.Num 3))
-            ,("(bar - 2) / foo", M.Infix (A.Div, M.Infix (A.Sub, M.Id "bar", M.Num 2), M.Id "foo"))
-            ,("1 - 2 + 3 - 4",   M.Infix (A.Sub, M.Infix (A.Add, M.Infix (A.Sub, M.Num 1, M.Num 2), M.Num 3), M.Num 4))
+            ,("1 + 2",           M.Infix (E.Add, M.Num 1, M.Num 2))
+            ,("1 * 2 + 3",       M.Infix (E.Add, M.Infix (E.Mul, M.Num 1, M.Num 2), M.Num 3))
+            ,("1 - 2 / 3",       M.Infix (E.Sub, M.Num 1, M.Infix (E.Div, M.Num 2, M.Num 3)))
+            ,("(1 - 2) * 3",     M.Infix (E.Mul, M.Infix (E.Sub, M.Num 1, M.Num 2), M.Num 3))
+            ,("(1 - 2) * (3)",   M.Infix (E.Mul, M.Infix (E.Sub, M.Num 1, M.Num 2), M.Num 3))
+            ,("(bar - 2) / foo", M.Infix (E.Div, M.Infix (E.Sub, M.Id "bar", M.Num 2), M.Id "foo"))
+            ,("1 - 2 + 3 - 4",   M.Infix (E.Sub, M.Infix (E.Add, M.Infix (E.Sub, M.Num 1, M.Num 2), M.Num 3), M.Num 4))
            ]
        ; c "parser/fns"
            [
              ("fn x=>x",           M.Fn ("x", M.Id "x"))
             ,("fn x => fn y => y", M.Fn ("x", M.Fn ("y", M.Id "y")))
-            ,("fn x => x + x",     M.Fn ("x", M.Infix (A.Add, M.Id "x", M.Id "x")))
-            ,("fn x=>x+x",         M.Fn ("x", M.Infix (A.Add, M.Id "x", M.Id "x")))
+            ,("fn x => x + x",     M.Fn ("x", M.Infix (E.Add, M.Id "x", M.Id "x")))
+            ,("fn x=>x+x",         M.Fn ("x", M.Infix (E.Add, M.Id "x", M.Id "x")))
            ]
        ; c "parser/parens"
            [

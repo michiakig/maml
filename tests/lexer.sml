@@ -3,11 +3,11 @@ struct
 
 open QCheck
 
-structure L = Lexer
+structure L = Token
 
 fun test _ = (
    check (List.getItem, SOME (Show.pair (fn x => x, Show.list L.show)))
-         ("lexer", pred (fn (s, toks) => (L.lexStr s) = toks))
+         ("lexer", pred (fn (s, toks) => (Lexer.lexStr s) = toks))
          [
            ("0",                        [L.Num ({line=1,col=1}, 0)])
           ,("fn x=>x",                  [L.Fn {line=1,col=1}, L.Id ({line=1,col=4},"x"), L.Arrow {line=1,col=5}, L.Id ({line=1,col=7},"x")])

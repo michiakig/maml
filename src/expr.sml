@@ -1,4 +1,7 @@
-structure Abstract =
+(*
+ * Abstract syntax tree for expressions
+ *)
+structure Expr =
 struct
 
 datatype binop = Add | Sub | Mul | Div

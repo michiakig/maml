@@ -2,9 +2,10 @@ Library
     structure Type
     structure TypeInf
 
+    structure Token
     structure Lexer
     structure Parser
-    structure Abstract
+    structure Expr
     structure Desugar
     structure Pattern
 
@@ -14,9 +15,10 @@ is
     src/stringmap.sml
     src/type.sml
 
+    src/token.sml
     src/lexer.sml
     src/parser.sml
-    src/abstract.sml
+    src/expr.sml
     src/desugar.sml
     src/pattern.sml
 

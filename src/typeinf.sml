@@ -2,7 +2,7 @@ structure TypeInf =
 struct
 
 structure T = Type
-structure A = Abstract
+structure E = Expr
 
 (* constraint relates types to types *)
 type constraint = {lhs: T.t, rhs: T.t}
@@ -39,7 +39,7 @@ in
    fun reset () = tVarId := 0
 end
 
-type info = {pos : A.pos, tv : string}
+type info = {pos : E.pos, tv : string}
 exception FreeVariable
 local
    (* map from identifiers in the obj lang to type variable *)
@@ -49,42 +49,42 @@ local
          val compare = String.compare
       end)
 in
-   fun assignTypeVars (ast : A.pos A.t) : info A.t =
+   fun assignTypeVars (ast : E.pos E.t) : info E.t =
        let
-          fun g (p : A.pos) : info = {pos = p, tv = gensym ()}
+          fun g (p : E.pos) : info = {pos = p, tv = gensym ()}
 
-          fun a (_, A.Num (pos, n)) = A.Num (g pos, n)
-            | a (_, A.Bool (pos, b)) = A.Bool (g pos, b)
-            | a (env, A.Infix (pos, bin, e1, e2)) = A.Infix (g pos, bin, a (env, e1), a (env, e2))
+          fun a (_, E.Num (pos, n)) = E.Num (g pos, n)
+            | a (_, E.Bool (pos, b)) = E.Bool (g pos, b)
+            | a (env, E.Infix (pos, bin, e1, e2)) = E.Infix (g pos, bin, a (env, e1), a (env, e2))
 
-            | a (env, A.App (pos, e1, e2)) = A.App (g pos, a (env, e1), a (env, e2))
-            | a (env, A.If (pos, e1, e2, e3)) = A.If (g pos, a (env, e1), a (env, e2), a (env, e3))
+            | a (env, E.App (pos, e1, e2)) = E.App (g pos, a (env, e1), a (env, e2))
+            | a (env, E.If (pos, e1, e2, e3)) = E.If (g pos, a (env, e1), a (env, e2), a (env, e3))
 
-            | a (env, A.Fn (bound, self, x, e)) =
+            | a (env, E.Fn (bound, self, x, e)) =
               let
                  val tv = gensym ()
               in
-                 A.Fn ({pos=bound, tv = tv}, g self, x, a (Env.insert (env, x, tv), e))
+                 E.Fn ({pos=bound, tv = tv}, g self, x, a (Env.insert (env, x, tv), e))
               end
 
-            | a (env, A.Id (pos, id)) =
+            | a (env, E.Id (pos, id)) =
               case Env.find (env, id) of
-                  SOME tv => A.Id ({pos=pos, tv=tv}, id)
+                  SOME tv => E.Id ({pos=pos, tv=tv}, id)
                 | NONE => raise FreeVariable
        in
           a (Env.empty, ast)
        end
 end
 
-fun gettv (A.Num ({tv, ...} : info, _))  = tv
-  | gettv (A.Bool ({tv, ...}, _))        = tv
-  | gettv (A.Id ({tv, ...}, _))          = tv
-  | gettv (A.Infix ({tv, ...}, _, _, _)) = tv
-  | gettv (A.App ({tv, ...}, _, _))      = tv
-  | gettv (A.If ({tv, ...}, _, _, _))    = tv
-  | gettv (A.Fn (_, {tv, ...}, _, _))    = tv
+fun gettv (E.Num ({tv, ...} : info, _))  = tv
+  | gettv (E.Bool ({tv, ...}, _))        = tv
+  | gettv (E.Id ({tv, ...}, _))          = tv
+  | gettv (E.Infix ({tv, ...}, _, _, _)) = tv
+  | gettv (E.App ({tv, ...}, _, _))      = tv
+  | gettv (E.If ({tv, ...}, _, _, _))    = tv
+  | gettv (E.Fn (_, {tv, ...}, _, _))    = tv
 
-val rec genCon : (info A.t * ConstrSet.set) -> ConstrSet.set =
+val rec genCon : (info E.t * ConstrSet.set) -> ConstrSet.set =
  fn (e, constrs) =>
     let
        fun builtin (self, child1, child2, arg1, arg2, ret, cs) =
@@ -105,11 +105,11 @@ val rec genCon : (info A.t * ConstrSet.set) -> ConstrSet.set =
     in
        case e of
 
-           A.Bool ({tv, ...}, _) => ConstrSet.add (constrs, {lhs = T.Var tv, rhs = T.Bool})
+           E.Bool ({tv, ...}, _) => ConstrSet.add (constrs, {lhs = T.Var tv, rhs = T.Bool})
 
-         | A.Num ({tv, ...}, _) => ConstrSet.add (constrs, {lhs = T.Var tv, rhs = T.Num})
+         | E.Num ({tv, ...}, _) => ConstrSet.add (constrs, {lhs = T.Var tv, rhs = T.Num})
 
-         | A.If ({tv, ...}, e1, e2, e3) =>
+         | E.If ({tv, ...}, e1, e2, e3) =>
            let
               fun f (x, cs) = genCon (x, cs)
               val constrs' = foldl f constrs [e1, e2, e3]
@@ -125,7 +125,7 @@ val rec genCon : (info A.t * ConstrSet.set) -> ConstrSet.set =
               ConstrSet.addList (constrs', constrs'')
            end
 
-         | A.Fn ({tv=bound, ...}, {tv=self, ...}, x, body) =>
+         | E.Fn ({tv=bound, ...}, {tv=self, ...}, x, body) =>
            let
               val tvbody = gettv body
               val constrs' = genCon (body, constrs)
@@ -133,9 +133,9 @@ val rec genCon : (info A.t * ConstrSet.set) -> ConstrSet.set =
               ConstrSet.add (constrs', {lhs = T.Var self, rhs = T.Arrow (T.Var bound, T.Var tvbody)})
            end
 
-         | A.Id _ => constrs
+         | E.Id _ => constrs
 
-         | A.App ({tv,...}, f, a) =>
+         | E.App ({tv,...}, f, a) =>
            let
               val tvf = gettv f
               val tva = gettv a
@@ -156,8 +156,8 @@ fun prettyPrintConstraint ({lhs, rhs} : constraint, env, ast) : string =
          | showTyp (T.Var tv) = tv
            (* (* lookup ty vars in env, replace with ast if possible *) *)
            (* (case Env.findK (env, tv) of *)
-           (*      SOME id => (case A.findById (ast, id) of *)
-           (*                      SOME n => "{(" ^ tv ^ ") " ^ A.show n ^ "}" *)
+           (*      SOME id => (case E.findById (ast, id) of *)
+           (*                      SOME n => "{(" ^ tv ^ ") " ^ E.show n ^ "}" *)
            (*                    | NONE => "?" ^ tv) *)
            (*    | NONE => tv) *)
     in
@@ -272,7 +272,7 @@ fun unify (constrs : ConstrSet.set) =
     end
 
 
-fun typeof (e : A.pos A.t) : T.t =
+fun typeof (e : E.pos E.t) : T.t =
     (reset ();
      let
         val ast = assignTypeVars e
