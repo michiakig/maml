@@ -132,7 +132,7 @@ fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
 
               | _ => infexp 0)
 
-       and clauses () : (Pattern.Complex.t * 'a Expr.t) list =
+       and clauses () : (AST.Pattern.Complex.t * 'a Expr.t) list =
            (log "clauses";
             let
                val pat = pattern ()
@@ -142,7 +142,7 @@ fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
                   | t => expected "=>" t)
             end)
 
-       and clauses' () : (Pattern.Complex.t * 'a Expr.t) list =
+       and clauses' () : (AST.Pattern.Complex.t * 'a Expr.t) list =
            (log "clauses'"
            ; if has ()
                 then case peek () of
@@ -150,14 +150,14 @@ fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
                        | _ => []
              else [])
 
-       and pattern () : Pattern.Complex.t =
+       and pattern () : AST.Pattern.Complex.t =
            (log "pattern"
            ; case peek () of
-                 Token.Id (_, x) => (adv (); Pattern.Complex.Var x)
+                 Token.Id (_, x) => (adv (); AST.Pattern.Complex.Var x)
                | Token.LParen _ => (adv ()
                                ; case peek () of
                                      Token.Ctor (_, c) => (adv ()
-                                                      ; let val ctor = Pattern.Complex.Ctor (c, pattern' ())
+                                                      ; let val ctor = AST.Pattern.Complex.Ctor (c, pattern' ())
                                                         in case peek () of
                                                                Token.RParen _ => (adv (); ctor)
                                                              | t => expected "closing paren in pattern" t
@@ -165,7 +165,7 @@ fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
                                  | t => expected "ctor application in pattern" t)
                | t => expected "var or parenthesized ctor application in pattern" t)
 
-       and pattern' () : Pattern.Complex.t list =
+       and pattern' () : AST.Pattern.Complex.t list =
            (log "pattern'"
            ; if has ()
                 then case peek () of

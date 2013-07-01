@@ -5,7 +5,7 @@ open QCheck
 open Desugar
 structure E = AST.Expr
 structure M = AST.Expr.Mono
-structure Pat = Pattern.Complex
+structure Pat = AST.Pattern.Complex
 
 local
   val eqxn = Show.pair (Show.list Pat.show, E.show)

@@ -8,14 +8,14 @@ structure Desugar =
 struct
 
 structure E = AST.Expr
-type 'a eqxn = Pattern.Complex.t list * 'a E.t
+type 'a eqxn = AST.Pattern.Complex.t list * 'a E.t
 exception Assert of string
 
 (*
  * check if eqxn starts with a var or ctor
  *)
-fun isVar (Pattern.Complex.Var _ :: _, _) = true
-  | isVar (Pattern.Complex.Ctor _ :: _, _) = false
+fun isVar (AST.Pattern.Complex.Var _ :: _, _) = true
+  | isVar (AST.Pattern.Complex.Ctor _ :: _, _) = false
   | isVar _ = raise Assert "isVar: eqxn has empty pat list"
 
 fun isCtor (q : 'a eqxn) : bool = not (isVar q)
@@ -23,7 +23,7 @@ fun isCtor (q : 'a eqxn) : bool = not (isVar q)
 (*
  * get the ctor (if this eqxn starts with one)
  *)
-fun getCtor (Pattern.Complex.Ctor (c, ps') :: ps, e) = c
+fun getCtor (AST.Pattern.Complex.Ctor (c, ps') :: ps, e) = c
   | getCtor _ = raise Assert "getCtor: eqxn has empty pat list"
 
 (*
@@ -77,8 +77,8 @@ fun subst (e1 : 'a E.t, x : string, e2 : string) : 'a E.t =
       (* match also binds new vars... *)
       | m as E.Match (a, e3, qs) =>
         let
-           fun occurs (Pattern.Complex.Var v) = v = x
-             | occurs (Pattern.Complex.Ctor (_, ps)) = List.exists occurs ps
+           fun occurs (AST.Pattern.Complex.Var v) = v = x
+             | occurs (AST.Pattern.Complex.Ctor (_, ps)) = List.exists occurs ps
            fun subst' (p, e) = if occurs p then (p, e) else (p, subst (e, x, e2))
         in
            E.Match (a, subst (e3, x, e2), map subst' qs)
@@ -100,7 +100,7 @@ fun partition f [] = []
  *)
 fun subpats (ctor : string, eqxns : 'a eqxn list) : 'a eqxn list =
     let
-       fun subpats' (Pattern.Complex.Ctor (c, ps') :: ps, e) =
+       fun subpats' (AST.Pattern.Complex.Ctor (c, ps') :: ps, e) =
            if c <> ctor
               then raise Assert "subpats: non-matching ctors in eqxns"
            else (ps' @ ps, e)
@@ -132,7 +132,7 @@ and matchVarCon (us : 'a E.t list, (q::qs) : 'a eqxn list, def : 'a E.t) : 'a E.
 and matchVar ((u::us) : 'a E.t list, qs : 'a eqxn list, def : 'a E.t) : 'a E.t =
     let
        val u' = gensym "_u"
-       fun matchVar' (Pattern.Complex.Var v :: ps, e) = (ps, subst (e, v, u'))
+       fun matchVar' (AST.Pattern.Complex.Var v :: ps, e) = (ps, subst (e, v, u'))
     in
        (* FIXME getInfo u *)
        E.Let (E.getInfo u, u', u, match (us, map matchVar' qs, def))
@@ -143,13 +143,13 @@ and matchVar ((u::us) : 'a E.t list, qs : 'a eqxn list, def : 'a E.t) : 'a E.t =
  * Return a case clause (pat * expr) for this ctor, exprs, eqxns, default
  * where the expr is the result of recursively compiling the rest of the pattern match
  *)
-and matchClause (ctor : string, (u::us) : 'a E.t list, qs : 'a eqxn list, def : 'a E.t) : (Pattern.Simple.t * 'a E.t) =
+and matchClause (ctor : string, (u::us) : 'a E.t list, qs : 'a eqxn list, def : 'a E.t) : (AST.Pattern.Simple.t * 'a E.t) =
     let
        val us' = List.tabulate (arity ctor, fn _ => gensym "_u")
        (* FIXME getInfo u *)
        val info = E.getInfo u
     in
-       (Pattern.Simple.Ctor (ctor, us'), match ((map (fn u' => E.Id (info, u')) us') @ us, subpats (ctor, qs), def))
+       (AST.Pattern.Simple.Ctor (ctor, us'), match ((map (fn u' => E.Id (info, u')) us') @ us, subpats (ctor, qs), def))
     end
   | matchClause (_, [], _, _) = raise Assert "matchClause: empty list of exprs"
 

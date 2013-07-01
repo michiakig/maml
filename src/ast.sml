@@ -3,6 +3,28 @@ struct
    type pos = {line : int, col : int}
 
    (*
+    * AST for patterns (i.e. in match/case expressions)
+    * Two kinds of patterns -- complex appear in source, simple appear in desugared case
+    *)
+   structure Pattern =
+   struct
+      structure Complex = (* allows nested patterns *)
+      struct
+         datatype t = Var of string
+                    | Ctor of string * t list
+         fun show (Var v) = "Var " ^ v
+           | show (Ctor (ctor, ps)) = "Ctor (" ^ ctor ^ "," ^ (Show.list show) ps ^ ")"
+      end
+      structure Simple = (* simple patterns, no nesting *)
+      struct
+         datatype t = Var of string
+                    | Ctor of string * string list
+         fun show (Var v) = "Var " ^ v
+           | show (Ctor (ctor, vs)) = "Ctor (" ^ ctor ^ ",[" ^ String.concatWith "," vs ^ "])"
+      end
+   end
+
+   (*
     * Abstract syntax tree for expressions
     *)
    structure Expr =
@@ -122,7 +144,7 @@ struct
    end
 
    (*
-    * AST for types
+    * AST for types, i.e. for type annotations in source code
     *)
    structure Type =
    struct
@@ -151,5 +173,6 @@ struct
      | show (Val (_, x, e)) = "Val (" ^ x ^ "," ^ Expr.show e ^ ")"
    
    end
+
 
 end

@@ -3,7 +3,7 @@ struct
 open QCheck
 structure E = AST.Expr
 structure M = AST.Expr.Mono
-structure Pat = Pattern.Complex
+structure Pat = AST.Pattern.Complex
 fun test _ =
     let
        fun c name = check (List.getItem, SOME (Show.pair (fn x => x, M.show)))
