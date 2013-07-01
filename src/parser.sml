@@ -39,6 +39,95 @@ struct
 
 exception SyntaxError of string
 
+   (*
+    * Pratt parser for type expressions
+    *)
+   local
+
+      datatype assoc = Left | Right
+
+      exception NoPrecedence of string
+      fun getPrec (Token.Mul _)    = (60, fn (pos, AST.Type.Tuple (_, xs), y) => AST.Type.Tuple (pos, xs @ [y]) | (pos, x, y) => AST.Type.Tuple (pos, [x, y]), Left)
+        | getPrec (Token.TArrow _) = (50, AST.Type.Arrow, Right)
+        | getPrec t                = raise NoPrecedence (Token.show t)
+
+      fun isInfix (Token.Mul _)    = true
+        | isInfix (Token.TArrow _) = true
+        | isInfix _                = false
+
+   in
+
+      (*
+       * given a list of tokens, parse a single type expression, and return the unconsumed input
+       *)
+      fun parseType (ts : 'a Token.t list) : 'a AST.Type.t * 'a Token.t list =
+          let
+             val rest = ref ts
+             fun has () = not (null (!rest))
+             fun peek () = case !rest of [] => NONE | t :: _ => SOME t
+             fun unsafe () = hd (!rest)
+             fun eat () = rest := tl (!rest)
+             fun next () = peek () before eat ()
+
+             val debug = true
+             fun log s =
+                 if debug
+                    then (print (s ^ "(" ^
+                                 (case peek () of
+                                      NONE => ".."
+                                    | SOME t => Token.show t)
+                                 ^ ")")
+                         ; print "\n")
+                 else ()
+             fun expected s t = raise SyntaxError ("expected " ^ s ^
+                                                   ", got " ^ Token.show t)
+             (*
+              * parse an atomic expression -- var or parenthesized infix
+              *)
+             fun atom () : 'a AST.Type.t =
+                 (log "atom";
+                  case peek () of
+                      SOME (Token.TypeVar v) => (eat (); AST.Type.Var v)
+                    | SOME (Token.LParen pos)  => (eat (); case peek () of
+                                                               SOME (Token.RParen _) => AST.Type.Paren (pos, infexp 0)
+                                                             | SOME t => expected "RParen" t
+                                                             | NONE => raise SyntaxError "unexpected EOF")
+                    | SOME t             => expected "TypeVar or LParen" t
+                    | NONE               => raise SyntaxError "unexpected EOF")
+
+             (*
+              * parse an infix expression
+              *)
+             and infexp (prec : int) : 'a AST.Type.t =
+                 (log "infexp";
+                  let
+                     fun infexp' (prec : int, lhs : 'a AST.Type.t) : 'a AST.Type.t =
+                         (log "infexp'";
+                          case peek () of
+                              SOME (Token.Id (pos, c)) => (eat (); infexp' (prec, AST.Type.Con (pos, c, lhs)))
+                            | SOME t =>
+                              if isInfix t
+                              then
+                                 let val (prec', ctor, assoc) = getPrec t
+                                 in
+                                    if prec < prec'
+                                    then let val _ = eat ();
+                                             val prec'' = case assoc of Left => prec' | Right => prec' - 1
+                                             val lhs = ctor (Token.getInfo t, lhs, infexp prec'')
+                                         in infexp' (prec, lhs)
+                                         end
+                                    else lhs
+                                 end
+                              else lhs
+                            | _ => lhs)
+                  in
+                     infexp' (prec, atom ())
+                  end)
+          in
+             (infexp 0, !rest)
+          end
+   end
+
 (* check if token is in FIRST(atexp) *)
 fun FIRSTatexp (Token.Id (pos, _))   = true
   | FIRSTatexp (Token.Num (pos, _))  = true
@@ -64,7 +153,7 @@ structure Expr = AST.Expr
 (*
  * Given a list of tokens, parse one expression
  *)
-fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
+fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
     let
        val rest = ref toks
        fun has () = not (null (!rest))
@@ -86,7 +175,7 @@ fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
             else 0)
 
        (* flip this to print the grammar productions at each step *)
-       val debug = false
+       val debug = true
        fun log s =
            let val t = if has () then Token.show (peek ()) else ".."
            in if debug
@@ -250,100 +339,50 @@ fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
            (log "appexp";
             appexp' (atexp ()))
 
+       and ctor () : string * 'a AST.Type.t option =
+           (log "ctor";
+            case peek () of
+                Token.Ctor (_, name) => (adv ();
+                                         case peek () of
+                                             Token.Of _ => (adv ();
+                                                            let val (typ, rest') = parseType (!rest)
+                                                            in rest := rest' ; (name, SOME typ)
+                                                            end)
+                                           | _ => (name, NONE))
+              | t => expected "ctor in datatype decl" t)
+
+       and ctors' () : (string * 'a AST.Type.t option) list =
+           (log "ctors'";
+            if has ()
+            then
+               case peek () of
+                   Token.Bar _ => (adv (); ctor () :: ctors' ())
+                 | _ => []
+            else [] )
+
+       and ctors () : (string * 'a AST.Type.t option) list =
+           (log "ctors";
+            ctor () :: ctors' ())
+
+       and decl () : 'a AST.Decl.t =
+           (log "decl";
+            case peek () of
+                Token.Datatype pos => (adv (); (* TODO: parse type var declarations, i.e. datatype >'a< tree... and datatype >('a, 'b)< either... *)
+                                       case peek () of
+                                           Token.Id (_, id) => (adv (); case peek () of
+                                                                            Token.Eqls _ => (adv (); AST.Decl.Data (pos, id, ctors ()))
+                                                                          | t => expected "= in datatype decl" t)
+                                         | t => expected "ident in datatype decl" t)
+              | Token.Val pos => (adv ();
+                                  case peek () of
+                                      Token.Id (_, id) => (adv (); case peek () of
+                                                                       Token.Eqls _ => (adv (); AST.Decl.Val (pos, id, expr ()))
+                                                                     | t => expected "= in val decl" t)
+                                    | t => expected "ident in val decl" t)
+              | t => expected "datatype or val in top-level decl" t)
+
     in
-       expr ()
+       decl ()
     end
-
-   (*
-    * Pratt parser for type expressions
-    *)
-   local
-
-      datatype assoc = Left | Right
-   
-      exception NoPrecedence of string
-      fun getPrec (Token.Mul _)    = (60, fn (pos, AST.Type.Tuple (_, xs), y) => AST.Type.Tuple (pos, xs @ [y]) | (pos, x, y) => AST.Type.Tuple (pos, [x, y]), Left)
-        | getPrec (Token.TArrow _) = (50, AST.Type.Arrow, Right)
-        | getPrec t                = raise NoPrecedence (Token.show t)
-
-      fun isInfix (Token.Mul _)    = true
-        | isInfix (Token.TArrow _) = true
-        | isInfix _                = false
-   
-      exception SyntaxError of string
-
-   in
-
-      (*
-       * given a list of tokens, parse a single type expression, and return the unconsumed input
-       *)
-      fun parseType (ts : 'a Token.t list) : 'a AST.Type.t * 'a Token.t list =
-          let
-             val rest = ref ts
-             fun has () = not (null (!rest))
-             fun peek () = case !rest of [] => NONE | t :: _ => SOME t
-             fun unsafe () = hd (!rest)
-             fun eat () = rest := tl (!rest)
-             fun next () = peek () before eat ()
-   
-             val debug = false
-             fun log s =
-                 if debug
-                    then (print (s ^ "(" ^
-                                 (case peek () of
-                                      NONE => ".."
-                                    | SOME t => Token.show t)
-                                 ^ ")")
-                         ; print "\n")
-                 else ()
-             fun expected s t = raise SyntaxError ("expected " ^ s ^
-                                                   ", got " ^ Token.show t)
-             (*
-              * parse an atomic expression -- var or parenthesized infix
-              *)
-             fun atom () : 'a AST.Type.t =
-                 (log "atom";
-                  case peek () of
-                      SOME (Token.TypeVar v) => (eat (); AST.Type.Var v)
-                    | SOME (Token.LParen pos)  => (eat (); case peek () of
-                                                               SOME (Token.RParen _) => AST.Type.Paren (pos, infexp 0)
-                                                             | SOME t => expected "RParen" t
-                                                             | NONE => raise SyntaxError "unexpected EOF")
-                    | SOME t             => expected "TypeVar or LParen" t
-                    | NONE               => raise SyntaxError "unexpected EOF")
-   
-             (*
-              * parse an infix expression
-              *)
-             and infexp (prec : int) : 'a AST.Type.t =
-                 (log "infexp";
-                  let
-                     fun infexp' (prec : int, lhs : 'a AST.Type.t) : 'a AST.Type.t =
-                         (log "infexp'";
-                          case peek () of
-                              SOME (Token.Id (pos, c)) => (eat (); infexp' (prec, AST.Type.Con (pos, c, lhs)))
-                            | SOME t =>
-                              if isInfix t
-                              then
-                                 let val (prec', ctor, assoc) = getPrec t
-                                 in
-                                    if prec < prec'
-                                    then let val _ = eat ();
-                                             val prec'' = case assoc of Left => prec' | Right => prec' - 1
-                                             val lhs = ctor (Token.getInfo t, lhs, infexp prec'')
-                                         in infexp' (prec, lhs)
-                                         end
-                                    else lhs
-                                 end
-                              else lhs
-                            | _ => lhs)
-                  in
-                     infexp' (prec, atom ())
-                  end)
-          in
-             (infexp 0, !rest)
-          end
-   end
-
 
 end

@@ -166,10 +166,10 @@ struct
    struct
    
    datatype 'a t =
-            Data of 'a * string * (string * 'a Type.t) list
+            Data of 'a * string * (string * 'a Type.t option) list
           | Val of 'a * string * 'a Expr.t
    
-   fun show (Data (_, name, cs)) = "Data (" ^ name ^ ",[" ^ String.concatWith "," (map (fn (c, t) => "(" ^ c ^ "," ^ Type.show t ) cs) ^ "])"
+   fun show (Data (_, name, cs)) = "Data (" ^ name ^ ",[" ^ String.concatWith "," (map (fn (c, NONE) => "(" ^ c ^ ", NONE)" | (c, SOME t) => "(" ^ c ^ "," ^ Type.show t ^ ")") cs) ^ "])"
      | show (Val (_, x, e)) = "Val (" ^ x ^ "," ^ Expr.show e ^ ")"
    
    end
