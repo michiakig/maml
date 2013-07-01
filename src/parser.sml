@@ -257,8 +257,8 @@ fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
    (*
     * Pratt parser for type expressions
     *)
-   structure Type =
-   struct
+   local
+
       datatype assoc = Left | Right
    
       exception NoPrecedence of string
@@ -271,8 +271,13 @@ fun parseExpr (toks : 'a Token.t list) : 'a Expr.t =
         | isInfix _                = false
    
       exception SyntaxError of string
-   
-      fun parse (ts : 'a Token.t list) : 'a AST.Type.t * 'a Token.t list =
+
+   in
+
+      (*
+       * given a list of tokens, parse a single type expression, and return the unconsumed input
+       *)
+      fun parseType (ts : 'a Token.t list) : 'a AST.Type.t * 'a Token.t list =
           let
              val rest = ref ts
              fun has () = not (null (!rest))
