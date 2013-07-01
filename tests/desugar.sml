@@ -3,8 +3,8 @@ struct
 
 open QCheck
 open Desugar
-structure E = Expr
-structure M = Expr.Mono
+structure E = AST.Expr
+structure M = AST.Expr.Mono
 structure Pat = Pattern.Complex
 
 local

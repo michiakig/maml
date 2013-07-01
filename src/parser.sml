@@ -32,7 +32,7 @@
 
 structure Parser : sig 
 
-val parseExpr : 'a Token.t list -> 'a Expr.t
+val parseExpr : 'a Token.t list -> 'a AST.Expr.t
 
 end =
 struct
@@ -53,11 +53,13 @@ fun isBinop (Token.Add _) = true
   | isBinop (Token.Div _) = true
   | isBinop _ = false
 
-fun getBinop (Token.Add _) = Expr.Add
-  | getBinop (Token.Sub _) = Expr.Sub
-  | getBinop (Token.Mul _) = Expr.Mul
-  | getBinop (Token.Div _) = Expr.Div
+fun getBinop (Token.Add _) = AST.Expr.Add
+  | getBinop (Token.Sub _) = AST.Expr.Sub
+  | getBinop (Token.Mul _) = AST.Expr.Mul
+  | getBinop (Token.Div _) = AST.Expr.Div
   | getBinop _ = raise Match
+
+structure Expr = AST.Expr
 
 (*
  * Given a list of tokens, parse one expression

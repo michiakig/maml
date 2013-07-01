@@ -46,7 +46,7 @@ exception LexicalError of string
 (*
  * list-based lexical analyzer, probably pretty slow
  *)
-fun lexStr (s : string) : Expr.pos Token.t list =
+fun lexStr (s : string) : AST.pos Token.t list =
     let
        val line = ref 1
        val col = ref 1

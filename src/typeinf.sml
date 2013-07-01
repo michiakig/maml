@@ -2,7 +2,7 @@ structure TypeInf =
 struct
 
 structure T = Type
-structure E = Expr
+structure E = AST.Expr
 
 (* constraint relates types to types *)
 type constraint = {lhs: T.t, rhs: T.t}
@@ -39,7 +39,7 @@ in
    fun reset () = tVarId := 0
 end
 
-type info = {pos : E.pos, tv : string}
+type info = {pos : AST.pos, tv : string}
 exception FreeVariable
 local
    (* map from identifiers in the obj lang to type variable *)
@@ -49,9 +49,9 @@ local
          val compare = String.compare
       end)
 in
-   fun assignTypeVars (ast : E.pos E.t) : info E.t =
+   fun assignTypeVars (ast : AST.pos E.t) : info E.t =
        let
-          fun g (p : E.pos) : info = {pos = p, tv = gensym ()}
+          fun g (p : AST.pos) : info = {pos = p, tv = gensym ()}
 
           fun a (_, E.Num (pos, n)) = E.Num (g pos, n)
             | a (_, E.Bool (pos, b)) = E.Bool (g pos, b)
@@ -272,7 +272,7 @@ fun unify (constrs : ConstrSet.set) =
     end
 
 
-fun typeof (e : E.pos E.t) : T.t =
+fun typeof (e : AST.pos E.t) : T.t =
     (reset ();
      let
         val ast = assignTypeVars e

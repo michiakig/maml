@@ -1,8 +1,8 @@
 structure ParserTests =
 struct
 open QCheck
-structure E = Expr
-structure M = Expr.Mono
+structure E = AST.Expr
+structure M = AST.Expr.Mono
 structure Pat = Pattern.Complex
 fun test _ =
     let

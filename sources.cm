@@ -5,7 +5,7 @@ Library
     structure Token
     structure Lexer
     structure Parser
-    structure Expr
+    structure AST
     structure Desugar
     structure Pattern
 
@@ -18,7 +18,7 @@ is
     src/token.sml
     src/lexer.sml
     src/parser.sml
-    src/expr.sml
+    src/ast.sml
     src/desugar.sml
     src/pattern.sml
 

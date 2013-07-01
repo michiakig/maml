@@ -7,7 +7,7 @@
 structure Desugar =
 struct
 
-structure E = Expr
+structure E = AST.Expr
 type 'a eqxn = Pattern.Complex.t list * 'a E.t
 exception Assert of string
 
