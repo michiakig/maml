@@ -69,8 +69,8 @@ struct
              fun has () = not (null (!rest))
              fun peek () = case !rest of [] => NONE | t :: _ => SOME t
              fun unsafe () = hd (!rest)
-             fun eat () = rest := tl (!rest)
-             fun next () = peek () before eat ()
+             fun adv () = rest := tl (!rest)
+             fun next () = peek () before adv ()
 
              fun log s =
                  if debug
@@ -89,8 +89,8 @@ struct
              fun atom () : 'a AST.Type.t =
                  (log "atom";
                   case peek () of
-                      SOME (Token.TypeVar v) => (eat (); AST.Type.Var v)
-                    | SOME (Token.LParen pos)  => (eat (); case peek () of
+                      SOME (Token.TypeVar v) => (adv (); AST.Type.Var v)
+                    | SOME (Token.LParen pos)  => (adv (); case peek () of
                                                                SOME (Token.RParen _) => AST.Type.Paren (pos, infexp 0)
                                                              | SOME t => expected "RParen" t
                                                              | NONE => raise SyntaxError "unexpected EOF")
@@ -106,14 +106,14 @@ struct
                      fun infexp' (prec : int, lhs : 'a AST.Type.t) : 'a AST.Type.t =
                          (log "infexp'";
                           case peek () of
-                              SOME (Token.Id (pos, c)) => (eat (); infexp' (prec, AST.Type.Con (pos, c, lhs)))
+                              SOME (Token.Id (pos, c)) => (adv (); infexp' (prec, AST.Type.Con (pos, c, lhs)))
                             | SOME t =>
                               if isInfix t
                               then
                                  let val (prec', ctor, assoc) = getPrec t
                                  in
                                     if prec < prec'
-                                    then let val _ = eat ();
+                                    then let val _ = adv ();
                                              val prec'' = case assoc of Left => prec' | Right => prec' - 1
                                              val lhs = ctor (Token.getInfo t, lhs, infexp prec'')
                                          in infexp' (prec, lhs)
