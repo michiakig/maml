@@ -37,7 +37,10 @@ structure Parser (*  : sig  *)
 (* end  *)=
 struct
 
-exception SyntaxError of string
+   exception SyntaxError of string
+
+   (* flip this to print the grammar productions at each step *)
+  val debug = false
 
    (*
     * Pratt parser for type expressions
@@ -69,7 +72,6 @@ exception SyntaxError of string
              fun eat () = rest := tl (!rest)
              fun next () = peek () before eat ()
 
-             val debug = true
              fun log s =
                  if debug
                     then (print (s ^ "(" ^
@@ -174,8 +176,6 @@ fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
                        | _ => 0)
             else 0)
 
-       (* flip this to print the grammar productions at each step *)
-       val debug = true
        fun log s =
            let val t = if has () then Token.show (peek ()) else ".."
            in if debug
