@@ -226,7 +226,7 @@ fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
                                      in
                                         case peek () of
                                             Token.Comma _ => AST.Pattern.Complex.Tuple (p :: patterns ())
-                                          | Token.RParen _ => p
+                                          | Token.RParen _ => (adv (); p)
                                           | t => expected "comma or ) in pattern" t
                                      end)
                | t => expected "var, tuple, or ctor application in pattern" t)
