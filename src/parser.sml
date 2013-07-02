@@ -1,33 +1,4 @@
 (* ML grammar, adapted from the Definition of Standard ML, appendix B fig 20 p63
-
- atexp    ::= constant
-              <value id>
-              let val <id> = <exp> in <exp> end
-              ( <exp> )
-              <... records, selectors, tuples, sequences, lists ...>
-
- appexp   ::= <atexp> <appexp'>
- appexp'  ::= <atexp> <appexp'>
-              <e>
-
- infexp   ::= <appexp> <infexp'>
- infexp'  ::= id <infexp> <infexp'>
-              <e>
-
- exp      ::= <infexp>
-              if <exp> then <exp> else <exp>
-              match <exp> with <clauses>
-              fn <id> => <exp>
-
- clauses  ::= <pattern> => <exp> <clauses'>
- clauses' ::= | <clauses>
- clauses'     <e>
-
- pattern  ::= <id>
- pattern      (<ctor> <pattern'>)
- pattern' ::= <pattern> <pattern'>
- pattern'     <e>
-
  *)
 
 structure Parser (*  : sig  *)
