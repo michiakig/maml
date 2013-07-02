@@ -108,14 +108,24 @@ fun test _ =
 
        ; c "parser/data"
            [
-             ("datatype list = Nil | Cons of 'a * 'a list",
-              D.Data ("list", [("Nil", NONE), ("Cons", SOME (T.Tuple [T.Var "a", T.Con ("list", T.Var "a")]))]))
+             ("datatype color = Red | Blue | Green",
+              D.Data ([], "color", [("Red", NONE), ("Blue", NONE), ("Green", NONE)]))
 
-            ,("datatype tree = Leaf of 'a | Branch of 'a tree * 'a tree",
-              D.Data ("tree", [("Leaf", SOME (T.Var "a")), ("Branch", SOME (T.Tuple [T.Con ("tree", T.Var "a"), T.Con ("tree", T.Var "a")]))]))
+            ,("datatype foo = Bar",
+              D.Data ([], "foo", [("Bar", NONE)]))
 
-            ,("datatype option = None | Some of 'a",
-              D.Data ("option", [("None", NONE), ("Some", SOME (T.Var "a"))]))
+            ,("datatype 'a list1 = Cons of 'a * 'a list1 | Nil",
+              D.Data (["a"], "list1", [("Cons", SOME (T.Tuple [T.Var "a", T.Con ("list1", T.Var "a")])), ("Nil", NONE)]))
+
+            ,("datatype 'a list2 = Nil | Cons of 'a * 'a list2",
+              D.Data (["a"], "list2", [("Nil", NONE), ("Cons", SOME (T.Tuple [T.Var "a", T.Con ("list2", T.Var "a")]))]))
+
+            ,("datatype 'a tree = Leaf of 'a | Branch of 'a tree * 'a tree",
+              D.Data (["a"], "tree", [("Leaf", SOME (T.Var "a")), ("Branch", SOME (T.Tuple [T.Con ("tree", T.Var "a"), T.Con ("tree", T.Var "a")]))]))
+
+            ,("datatype 'a option = None | Some of 'a",
+              D.Data (["a"], "option", [("None", NONE), ("Some", SOME (T.Var "a"))]))
+
            ]
        )
     end

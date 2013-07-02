@@ -107,7 +107,11 @@ struct
    structure Decl =
    struct
       datatype 'a t =
-               Data of 'a * string * (string * 'a Type.t option) list
+               Data of 'a
+                       * string list (* zero or more bound type vars *)
+                       * string (* type name *)
+                       * (string * 'a Type.t option) list (* one or more ctors *)
+
              | Val of 'a * string * 'a Expr.t
       fun show d =
           let
@@ -115,7 +119,7 @@ struct
                | showCtor (c, SOME t) = "(" ^ c ^ "," ^ Type.show t ^ ")"
           in
              case d of
-                 Data (_, name, cs) => "Data (" ^ name ^ ",[" ^ String.concatWith "," (map showCtor cs) ^ "])"
+                 Data (_, tyvars, name, cs) => "Data ([" ^ String.concatWith "," tyvars ^ "]," ^ name ^ ",[" ^ String.concatWith "," (map showCtor cs) ^ "])"
                | Val (_, x, e)      => "Val (" ^ x ^ "," ^ Expr.show e ^ ")"
           end
    end

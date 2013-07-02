@@ -82,7 +82,7 @@ struct
    structure Decl =
    struct
       datatype t =
-               Data of string * (string * Type.t option) list
+               Data of string list * string * (string * Type.t option) list
              | Val of string * Expr.t
       fun show d =
           let
@@ -90,7 +90,7 @@ struct
                | showCtor (c, SOME t) = "(" ^ c ^ "," ^ Type.show t ^ ")"
           in
              case d of
-                 Data (name, cs) => "Data (" ^ name ^ ",[" ^ String.concatWith "," (map showCtor cs) ^ "])"
+                 Data (tyvars, name, cs) => "Data ([" ^ String.concatWith "," tyvars ^ "]," ^ name ^ ",[" ^ String.concatWith "," (map showCtor cs) ^ "])"
                | Val (x, e)      => "Val (" ^ x ^ "," ^ Expr.show e ^ ")"
           end
       local
@@ -98,7 +98,7 @@ struct
       in
          fun make (d : 'a AST.Decl.t) : t =
              case d of
-                 D.Data (_, name, ctors) => Data (name, map (fn (c, NONE) => (c, NONE) | (c, SOME t) => (c, SOME (Type.make t))) ctors)
+                 D.Data (_, tyvars, name, ctors) => Data (tyvars, name, map (fn (c, NONE) => (c, NONE) | (c, SOME t) => (c, SOME (Type.make t))) ctors)
                | D.Val (_, x, e) => Val (x, Expr.make e)
       end
    end

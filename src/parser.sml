@@ -343,12 +343,15 @@ fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
            (log "ctor";
             case peek () of
                 Token.Ctor (_, name) => (adv ();
-                                         case peek () of
-                                             Token.Of _ => (adv ();
-                                                            let val (typ, rest') = parseType (!rest)
-                                                            in rest := rest' ; (name, SOME typ)
-                                                            end)
-                                           | _ => (name, NONE))
+                                         if has ()
+                                         then
+                                            case peek () of
+                                                Token.Of _ => (adv ();
+                                                               let val (typ, rest') = parseType (!rest)
+                                                               in rest := rest' ; (name, SOME typ)
+                                                               end)
+                                              | _ => (name, NONE)
+                                         else (name, NONE))
               | t => expected "ctor in datatype decl" t)
 
        and ctors' () : (string * 'a AST.Type.t option) list =
@@ -364,15 +367,28 @@ fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
            (log "ctors";
             ctor () :: ctors' ())
 
+       (* parse a datatype declaration *)
+       and data pos : 'a AST.Decl.t =
+           let
+              (* parse the rest of a datatype declaration, after `datatype 'a` or `datatype ('a, 'b)` *)
+              fun data' tyvars =
+                  case peek () of
+                      Token.Id (_, id) => (adv (); case peek () of
+                                                       Token.Eqls _ => (adv (); AST.Decl.Data (pos, tyvars, id, ctors ()))
+                                                     | t => expected "= in datatype decl" t)
+                    | t => expected "identifier in datatype declaration" t
+           in
+              log "data"
+            ; case peek () of
+                  Token.TypeVar (_, tyvar) => (adv (); data' [tyvar])
+                | _ => data' []
+           end
+
        and decl () : 'a AST.Decl.t =
            (log "decl";
             case peek () of
-                Token.Datatype pos => (adv (); (* TODO: parse type var declarations, i.e. datatype >'a< tree... and datatype >('a, 'b)< either... *)
-                                       case peek () of
-                                           Token.Id (_, id) => (adv (); case peek () of
-                                                                            Token.Eqls _ => (adv (); AST.Decl.Data (pos, id, ctors ()))
-                                                                          | t => expected "= in datatype decl" t)
-                                         | t => expected "ident in datatype decl" t)
+                Token.Datatype pos => (adv ()
+                                      ; data pos)
               | Token.Val pos => (adv ();
                                   case peek () of
                                       Token.Id (_, id) => (adv (); case peek () of
