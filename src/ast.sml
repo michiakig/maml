@@ -152,15 +152,18 @@ struct
     *)
    structure Decl =
    struct
-
-   datatype 'a t =
-            Data of 'a * string * (string * 'a Type.t option) list
-          | Val of 'a * string * 'a Expr.t
-
-   fun show (Data (_, name, cs)) = "Data (" ^ name ^ ",[" ^ String.concatWith "," (map (fn (c, NONE) => "(" ^ c ^ ", NONE)" | (c, SOME t) => "(" ^ c ^ "," ^ Type.show t ^ ")") cs) ^ "])"
-     | show (Val (_, x, e)) = "Val (" ^ x ^ "," ^ Expr.show e ^ ")"
-
+      datatype 'a t =
+               Data of 'a * string * (string * 'a Type.t option) list
+             | Val of 'a * string * 'a Expr.t
+      fun show d =
+          let
+             fun showCtor (c, NONE)   = "(" ^ c ^ ", NONE)"
+               | showCtor (c, SOME t) = "(" ^ c ^ "," ^ Type.show t ^ ")"
+          in
+             case d of
+                 Data (_, name, cs) => "Data (" ^ name ^ ",[" ^ String.concatWith "," (map showCtor cs) ^ "])"
+               | Val (_, x, e)      => "Val (" ^ x ^ "," ^ Expr.show e ^ ")"
+          end
    end
-
 
 end
