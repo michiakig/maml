@@ -214,23 +214,29 @@ fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
            (log "pattern"
            ; case peek () of
                  Token.Id (_, x) => (adv (); AST.Pattern.Complex.Var x)
+               | Token.Ctor (_, c) => (adv ();
+                                       if has ()
+                                          then case peek () of
+                                                   Token.Id _ => AST.Pattern.Complex.Ctor (c, SOME (pattern ()))
+                                                 | Token.LParen _ => AST.Pattern.Complex.Ctor (c, SOME (pattern ()))
+                                                 | _ => AST.Pattern.Complex.Ctor (c, NONE)
+                                       else AST.Pattern.Complex.Ctor (c, NONE))
                | Token.LParen _ => (adv ()
-                               ; case peek () of
-                                     Token.Ctor (_, c) => (adv ()
-                                                      ; let val ctor = AST.Pattern.Complex.Ctor (c, pattern' ())
-                                                        in case peek () of
-                                                               Token.RParen _ => (adv (); ctor)
-                                                             | t => expected "closing paren in pattern" t
-                                                        end)
-                                 | t => expected "ctor application in pattern" t)
-               | t => expected "var or parenthesized ctor application in pattern" t)
+                                   ; let val p = pattern ()
+                                     in
+                                        case peek () of
+                                            Token.Comma _ => AST.Pattern.Complex.Tuple (p :: patterns ())
+                                          | Token.RParen _ => p
+                                          | t => expected "comma or ) in pattern" t
+                                     end)
+               | t => expected "var, tuple, or ctor application in pattern" t)
 
-       and pattern' () : AST.Pattern.Complex.t list =
-           (log "pattern'"
+       and patterns () : AST.Pattern.Complex.t list =
+           (log "patterns"
            ; if has ()
                 then case peek () of
-                         Token.Id _ => (pattern () :: pattern' ())
-                       | Token.LParen _ => (pattern () :: pattern' ())
+                         Token.Comma _ => (adv (); pattern () :: patterns ())
+                       | Token.RParen _ => (adv (); [])
                        | _ => []
              else [])
 

@@ -11,9 +11,12 @@ struct
       structure Complex = (* allows nested patterns *)
       struct
          datatype t = Var of string
-                    | Ctor of string * t list
+                    | Tuple of t list
+                    | Ctor of string * t option
          fun show (Var v) = "Var " ^ v
-           | show (Ctor (ctor, ps)) = "Ctor (" ^ ctor ^ "," ^ (Show.list show) ps ^ ")"
+           | show (Ctor (ctor, SOME p)) = "Ctor (" ^ ctor ^ "," ^ show p ^ ")"
+           | show (Ctor (ctor, NONE)) = "Ctor " ^ ctor
+           | show (Tuple ps) = "Tuple [" ^ Show.list show ps ^ "]"
       end
       structure Simple = (* simple patterns, no nesting *)
       struct
