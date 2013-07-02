@@ -1,0 +1,21 @@
+Library
+    structure Token
+    structure Lexer
+    structure Parser
+    structure AST
+    structure MonoAST
+    structure Main
+is
+    src/token.sml
+    src/lexer.sml
+    src/parser.sml
+    src/ast.sml
+    src/monoast.sml
+
+    tests/parser.sml
+    main.sml
+
+    $/basis.cm
+    $/smlnj-lib.cm
+    $QCHECK/qcheck.cm
+    ../lib.sml/lib.cm
