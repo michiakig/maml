@@ -37,6 +37,12 @@ fun test _ =
             ,("val p2 =(true)",                        D.Val ("p2", E.Bool true))
             ,("val p3 =if (true) then (x) else ((y))", D.Val ("p3", E.If (E.Bool true, E.Id "x", E.Id "y")))
            ]
+       ; c "parser/tuples"
+           [
+             ("val t0 = (1, 2)", D.Val ("t0", E.Tuple [E.Num 1, E.Num 2]))
+            ,("val t1 = (1, 2, 3)", D.Val ("t1", E.Tuple [E.Num 1, E.Num 2, E.Num 3]))
+            ,("val t2 = (true, 2, fn x => x)", D.Val ("t2", E.Tuple [E.Bool true, E.Num 2, E.Fn ("x", E.Id "x")]))
+           ]
        ; c "parser/app"
            [
              ("val a0 = x y",                              D.Val ("a0", E.App (E.Id "x", E.Id "y")))

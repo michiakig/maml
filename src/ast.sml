@@ -49,6 +49,7 @@ struct
                  | Let of 'a * string * 'a t * 'a t
                  | Match of 'a * 'a t * (Pattern.Complex.t * 'a t) list
                  | Infix of 'a * binop * 'a t * 'a t
+                 | Tuple of 'a * 'a t list
 
                  | Case of 'a * 'a t * (Pattern.Simple.t * 'a t) list
 
@@ -62,6 +63,7 @@ struct
      | getInfo (Let (info, _, _, _)) = info
      | getInfo (Match (info, _, _))  = info
      | getInfo (Infix (info, _, _, _)) = info
+     | getInfo (Tuple (info, _))     = info
      | getInfo (Case (info, _, _))   = info
 
    fun show e =
@@ -79,6 +81,7 @@ struct
             | Let (_, x, e1, e2)       => "Let (" ^ x ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
             | Match (_, e, clauses)    => "Match (" ^ show e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
             | Infix (_, binop, e1, e2) => "Infix (" ^ showBinop binop ^ "," ^ show e1 ^ "," ^ show e1 ^ ")"
+            | Tuple (_, es) => "Tuple [" ^ String.concatWith "," (map show es) ^ "]"
             | Case (_, e, clauses)     => "Case (" ^ show e ^ "," ^ String.concatWith "|" (map showClause' clauses) ^ ")"
        end
 

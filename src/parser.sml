@@ -259,6 +259,15 @@ fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
                else lhs
             end)
 
+       and tuple () : 'a Expr.t list =
+           (log "tuple";
+            case peek () of
+                Token.Comma _ => (adv (); let val e = expr ()
+                                          in e :: tuple ()
+                                          end)
+              | Token.RParen _ => (adv (); [])
+              | t => expected "comma or )" t)
+
        and atexp () : 'a Expr.t =
            (log "atexp";
             case peek () of
@@ -290,11 +299,16 @@ fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
               | Token.Num (pos, n) => (adv (); Expr.Num (pos, n))
               | Token.Bool (pos, b) => (adv (); Expr.Bool (pos, b))
               | Token.Id (pos, s) => (adv (); Expr.Id (pos, s))
-              | Token.LParen _ => (adv (); let val ast = expr ()
-                                       in case peek () of
-                                              Token.RParen _ => (adv (); ast)
-                                            | t => expected ")" t
-                                       end)
+              | Token.LParen pos =>
+                (adv ();
+                 let
+                    val e = expr ()
+                 in
+                    case peek () of
+                        Token.RParen _ => (adv (); e)
+                      | Token.Comma _ => Expr.Tuple (pos, e :: tuple ())
+                      | t => expected "comma or )" t
+                 end)
               | t => expected "let, id or constant" t)
 
        (*
