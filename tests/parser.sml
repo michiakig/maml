@@ -64,7 +64,7 @@ fun test _ =
               D.Val ("m0", E.Match (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)])))
 
             ,("val m00 = match x with (Nil) => 0 | Cons (y, ys) => 1",
-              D.Val ("m0", E.Match (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)])))
+              D.Val ("m00", E.Match (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)])))
 
             ,("val m2 = match f x with y => g y | z => h z",
               D.Val ("m2", E.Match (E.App (E.Id "f", E.Id "x"), [(P.Var "y", E.App (E.Id "g", E.Id "y")), (P.Var "z", E.App (E.Id "h", E.Id "z"))])))
