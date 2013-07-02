@@ -37,42 +37,6 @@ struct
      | showBinop Mul = "Mul"
      | showBinop Div = "Div"
 
-   (*
-    * monomorphic AST type mostly used for testing
-    *)
-   structure Mono =
-   struct
-      datatype mono = Num of int
-                    | Bool of bool
-                    | Id of string
-                    | App of mono * mono
-                    | If of mono * mono * mono
-                    | Fn of string * mono
-                    | Let of string * mono * mono
-                    | Match of mono * (Pattern.Complex.t * mono) list
-                    | Infix of binop * mono * mono
-                    | Case of mono * (Pattern.Simple.t * mono) list
-
-      fun show e =
-          let
-             fun showClause (pat, e) = "(" ^ Pattern.Complex.show pat ^ "=>" ^ show e ^ ")"
-             fun showClause' (pat, e) = "(" ^ Pattern.Simple.show pat ^ "=>" ^ show e ^ ")"
-          in
-             case e of
-                 Num n                 => "Num " ^ Int.toString n
-               | Bool b                => "Bool " ^ Bool.toString b
-               | Id s                  => "Id " ^ s
-               | App (e1, e2)          => "App (" ^ show e1 ^ "," ^ show e2 ^ ")"
-               | If (e1, e2, e3)       => "If (" ^ show e1 ^ "," ^ show e2 ^ "," ^ show e3 ^ ")"
-               | Fn (x, e)             => "Fn (" ^ x ^ "," ^ show e ^ ")"
-               | Let (x, e1, e2)       => "Let (" ^ x ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
-               | Match (e, clauses)    => "Match (" ^ show e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
-
-               | Case (e, clauses)     => "Case (" ^ show e ^ "," ^ String.concatWith "|" (map showClause' clauses) ^ ")"
-               | Infix (binop, e1, e2) => "Infix (" ^ showBinop binop ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
-          end
-   end
-
    (* actual AST type, with polymorphic info *)
    datatype 'a t = Num of 'a * int
                  | Bool of 'a * bool
@@ -87,17 +51,6 @@ struct
                  | Infix of 'a * binop * 'a t * 'a t
 
                  | Case of 'a * 'a t * (Pattern.Simple.t * 'a t) list
-
-   fun toMono (Num (_, n))            = Mono.Num n
-     | toMono (Bool (_, b))           = Mono.Bool b
-     | toMono (Id (_, i))             = Mono.Id i
-     | toMono (If (_, e1, e2, e3))    = Mono.If (toMono e1, toMono e2, toMono e3)
-     | toMono (Fn (_, _, x, e))       = Mono.Fn (x, toMono e)
-     | toMono (App (_, e1, e2))       = Mono.App (toMono e1, toMono e2)
-     | toMono (Let (_, x, e1, e2))    = Mono.Let (x, toMono e1, toMono e2)
-     | toMono (Match (_, e, clauses)) = Mono.Match (toMono e, map (fn (pat, e) => (pat, toMono e)) clauses)
-     | toMono (Infix (_, binop, e1, e2)) = Mono.Infix (binop, toMono e1, toMono e2)
-     | toMono (Case (_, e, clauses))  = Mono.Case (toMono e, map (fn (pat, e) => (pat, toMono e)) clauses)
 
    fun getInfo (Num (info, _))       = info
      | getInfo (Bool (info, _))      = info
@@ -136,15 +89,16 @@ struct
     *)
    structure Type =
    struct
-   datatype 'a t = Var of 'a * string
-                 | Con of 'a * string * 'a t
-                 | Arrow of 'a * 'a t * 'a t
-                 | Tuple of 'a * 'a t list
-                 | Paren of 'a * 'a t
-   fun show (Var (_, v)) = "Var (" ^ v ^ ")"
-        | show (Con (_, c, t)) = "Con (" ^ c ^ "," ^ show t ^ ")"
-        | show (Arrow (_, x, y)) = "Arrow (" ^ show x ^ "," ^ show y ^ ")"
-        | show (Tuple (_, ts)) = "Tuple ([" ^ String.concatWith "," (map show ts) ^ "])"
+      datatype 'a t = Var of 'a * string
+                    | Con of 'a * string * 'a t
+                    | Arrow of 'a * 'a t * 'a t
+                    | Tuple of 'a * 'a t list
+                    | Paren of 'a * 'a t
+      fun show (Var (_, v)) = "Var (" ^ v ^ ")"
+           | show (Con (_, c, t)) = "Con (" ^ c ^ "," ^ show t ^ ")"
+           | show (Arrow (_, x, y)) = "Arrow (" ^ show x ^ "," ^ show y ^ ")"
+           | show (Tuple (_, ts)) = "Tuple ([" ^ String.concatWith "," (map show ts) ^ "])"
+           | show (Paren (_, t)) = "Paren " ^ show t
    end
 
    (*
