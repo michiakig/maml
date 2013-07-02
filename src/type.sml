@@ -3,6 +3,7 @@ structure Type : sig
 datatype t = Num
            | Bool
            | Arrow of t * t
+           | Tuple of t list
            | Var of string
            | List of t
 val compare : t * t -> order
@@ -14,6 +15,7 @@ end = struct
 datatype t = Num
            | Bool
            | Arrow of t * t
+           | Tuple of t list
            | Var of string
            | List of t
 
@@ -32,6 +34,19 @@ fun compare (Num    , Num)  = EQUAL
   | compare (Arrow _, Num)    = LESS
   | compare (Arrow _, Bool)   = LESS
   | compare (Arrow _, _)      = GREATER
+
+  | compare (Tuple ts, Tuple ts') =
+    (case Int.compare (length ts, length ts') of
+         EQUAL => let fun f ((t1, t2), EQUAL) = compare (t1, t2)
+                        | f (_, ord) = ord
+                      val xs = ListPair.zip (ts, ts')
+                  in foldl f (compare (hd xs)) (tl xs)
+                  end
+       | ord => ord)
+  | compare (Tuple _, Num) = LESS
+  | compare (Tuple _, Bool) = LESS
+  | compare (Tuple _, Arrow _) = LESS
+  | compare (Tuple _, _) = GREATER
 
   | compare (Var s  , Var s') = String.compare (s, s')
   | compare (Var _  , List _) = GREATER
@@ -55,6 +70,7 @@ and show Num              = "num"
   | show (Var s)          = s
   | show (Arrow (t1, t2)) = showArrowTyp (t1, t2)
   | show (List t)         = "[" ^ show t ^ "]"
+  | show (Tuple ts)         = "(" ^ String.concatWith "," (map show ts) ^ ")"
 
 fun normalize t =
     let
@@ -71,32 +87,26 @@ fun normalize t =
            in
               var before (idx := i + 1)
            end
-       fun normalize' (vars, Bool) = (vars, Bool)
-         | normalize' (vars, Num) = (vars, Num)
-         | normalize' (vars, (Var tv)) =
-           (case StringMap.find (vars, tv) of
-                SOME tv' => (vars, Var tv')
-              | NONE =>
-                let
-                   val var = freshVar ()
-                in
-                   (StringMap.insert (vars, tv, var), Var var)
-                end)
-         | normalize' (vars, (Arrow (t1, t2))) =
-           let
-              val (vars', t1') = normalize' (vars, t1)
-              val (vars'', t2') = normalize' (vars', t2)
-           in
-              (vars'', Arrow (t1', t2'))
-           end
-         | normalize' (vars, List t) =
-           let
-              val (vars', t') = (normalize' (vars, t))
-           in
-              (vars', List t')
-           end
+       val vars = ref StringMap.empty
+       fun getVar tv =
+           case StringMap.find (!vars, tv) of
+               SOME tv' => tv'
+             | NONE =>
+               let
+                  val var = freshVar ()
+               in
+                  vars := StringMap.insert (!vars, tv, var)
+                ; var
+               end
+
+       fun normalize' Bool = Bool
+         | normalize' Num = Num
+         | normalize' (Var tv) = Var (getVar tv)
+         | normalize' (Arrow (t1, t2)) = Arrow (normalize' t1, normalize' t2)
+         | normalize' (List t) = List (normalize' t)
+         | normalize' (Tuple ts) = Tuple (map normalize' ts)
     in
-       #2 (normalize' (StringMap.empty, t))
+       normalize' t
     end
 
 end
