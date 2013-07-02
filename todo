@@ -6,10 +6,6 @@ Infix of 'a * string * 'a t * 'a t
 
 sequence of declarations into a Program.t (i.e. Dec.t list)
 
-tuple literals, tuple patterns
-
-Fix parsing of ctor patterns
-
 return value of type `(SyntaxError, AST) either`
 
 Type checker
