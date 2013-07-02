@@ -126,6 +126,8 @@ fun test _ =
             ,("datatype 'a option = None | Some of 'a",
               D.Data (["a"], "option", [("None", NONE), ("Some", SOME (T.Var "a"))]))
 
+            ,("datatype ('a, 'b) either = Left of 'a | Right of 'b",
+              D.Data (["a", "b"], "either", [("Left", SOME (T.Var "a")), ("Right", SOME (T.Var "b"))]))
            ]
        )
     end

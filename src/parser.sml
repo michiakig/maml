@@ -377,10 +377,21 @@ fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
                                                        Token.Eqls _ => (adv (); AST.Decl.Data (pos, tyvars, id, ctors ()))
                                                      | t => expected "= in datatype decl" t)
                     | t => expected "identifier in datatype declaration" t
+
+              fun tyvars () =
+                  case peek () of
+                      Token.Comma _ => (adv (); case peek () of
+                                                    Token.TypeVar (_, tyvar) => (adv (); tyvar :: tyvars ())
+                                                  | t => expected "type variable in datatype declaration" t)
+                    | Token.RParen _ => (adv (); [])
+                    | t => expected "comma or ) in datatype declaration" t
            in
               log "data"
             ; case peek () of
                   Token.TypeVar (_, tyvar) => (adv (); data' [tyvar])
+                | Token.LParen _ => (adv (); case peek () of
+                                                 Token.TypeVar (_, tyvar) => (adv (); data' (tyvar :: tyvars ()))
+                                               | t => expected "type variable in datatype declaration" t)
                 | _ => data' []
            end
 
