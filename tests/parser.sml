@@ -4,6 +4,7 @@ open QCheck
 structure E = MonoAST.Expr
 structure T = MonoAST.Type
 structure D = MonoAST.Decl
+structure P = AST.Pattern.Complex
 fun test _ =
     let
        fun c name = check (List.getItem, SOME (Show.pair (fn x => x, D.show)))
@@ -64,7 +65,39 @@ fun test _ =
          c "parser/val"
            [
              ("val x = 1", D.Val ("x", E.Num 1))
+            ,("val xx = 1 + 2 + 3", D.Val ("xx", E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Add, E.Num 1, E.Num 2), E.Num 3)))
+            ,("val y = 1 + 2 * 3", D.Val ("y", E.Infix (AST.Expr.Add, E.Num 1, E.Infix (AST.Expr.Mul, E.Num 2, E.Num 3))))
+            ,("val yy = 1 * 2 + 3", D.Val ("yy", E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Mul, E.Num 1, E.Num 2), E.Num 3)))
+            ,("val z = (1 + 2) * 3", D.Val ("z", E.Infix (AST.Expr.Mul, E.Infix (AST.Expr.Add, E.Num 1, E.Num 2), E.Num 3)))
+            ,("val zz = 1 * (2 + 3)", D.Val ("zz", E.Infix (AST.Expr.Mul, E.Num 1, E.Infix (AST.Expr.Add, E.Num 2, E.Num 3))))
+
             ,("val f = fn x => x", D.Val ("f", E.Fn ("x", E.Id "x")))
+            ,("val ff = fn x => (x)", D.Val ("ff", E.Fn ("x", E.Id "x")))
+            ,("val fff = (fn x => x)", D.Val ("fff", E.Fn ("x", E.Id "x")))
+            ,("val g = fn z => fn y => fn x => x", D.Val ("g", E.Fn ("z", E.Fn ("y", E.Fn ("x", E.Id "x")))))
+            ,("val gg = (fn z => (fn y => (fn x => (x))))", D.Val ("gg", E.Fn ("z", E.Fn ("y", E.Fn ("x", E.Id "x")))))
+
+            ,("val m = let val x = 1 in x end ", D.Val ("m", E.Let ("x", E.Num 1, E.Id "x")))
+            ,("val mm = let val id = fn x => x in id end ", D.Val ("mm", E.Let ("id", E.Fn ("x", E.Id "x"), E.Id "id")))
+
+            ,("val a = if true then false else true", D.Val ("a", E.If (E.Bool true, E.Bool false, E.Bool true)))
+            ,("val aa = if (true) then (false) else (true)", D.Val ("aa", E.If (E.Bool true, E.Bool false, E.Bool true)))
+            ,("val b = if true then if false then true else false else true", D.Val ("b", E.If (E.Bool true, E.If (E.Bool false, E.Bool true, E.Bool false), E.Bool true)))
+            ,("val bb = if (true) then (if (false) then (true) else (false)) else (true)",
+              D.Val ("bb", E.If (E.Bool true, E.If (E.Bool false, E.Bool true, E.Bool false), E.Bool true)))
+
+
+            ,("val q = match x with\n   (Nil)          => 0\n | (Cons y (Nil)) => 1\n | (Cons y ys)    => 2\n",
+              D.Val ("q", E.Match (E.Id "x", [(P.Ctor ("Nil", []), E.Num 0)
+                                             ,(P.Ctor ("Cons", [P.Var "y", P.Ctor ("Nil", [])]), E.Num 1)
+                                             ,(P.Ctor ("Cons", [P.Var "y", P.Var "ys"]), E.Num 2)])))
+            ,("val qq = match x with y => if y then 1 else 2", D.Val ("qq", E.Match (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))])))
+
+            ,("val u = x y", D.Val ("u", E.App (E.Id "x", E.Id "y")))
+            ,("val uu = (x y)", D.Val ("uu", E.App (E.Id "x", E.Id "y")))
+            ,("val v = let val f = fn x => x in f end 1", D.Val ("v", E.App (E.Let ("f", E.Fn ("x", E.Id "x"), E.Id "f"), E.Num 1)))
+            ,("val vv = let val f = fn x => x in f end let val x = 2 in x end", D.Val ("vv", E.App (E.Let ("f", E.Fn ("x", E.Id "x"), E.Id "f"),
+                                                                                                   E.Let ("x", E.Num 2, E.Id "x"))))
            ]
 
        ; c "parser/data"
