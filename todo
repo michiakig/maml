@@ -1,0 +1,23 @@
+Parser
+======
+
+Infix of 'a * string * 'a t * 'a t
+              ^^^^^^ Infix should take a string for the op, not a binop
+
+sequence of declarations into a Program.t (i.e. Dec.t list)
+
+datatype ('a, 'b) either = Left of 'a | Right of 'b
+         ^^^^^^^^ Parse type var decl
+
+tuple literals, tuple patterns
+
+Fix parsing of ctor patterns
+
+return value of type `(SyntaxError, AST) either`
+
+Type checker
+============
+
+let expressions
+
+match/case expressions
