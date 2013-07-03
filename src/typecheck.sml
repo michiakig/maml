@@ -16,36 +16,37 @@ in
 end
 
 type typed = {pos : AST.pos, typ: T.t}
-exception FreeVariable
 
-structure Env = StringMap
+structure Env = StringMap (* environment mapping vars in obj lang to types *)
+exception Unbound (* thrown if there is an unbound ident *)
 
-fun assignTypeVars (ast : AST.pos E.t) : typed E.t =
+(*
+ * Given an expression, assign each sub expression type vars unless it's an ident bound in the existing gamma
+ *)
+fun assignTypeVars (env : T.t Env.map, e : AST.pos E.t) : typed E.t =
     let
-       fun g (p : AST.pos) : typed = {pos = p, typ = T.Var (gensym ())}
+       fun makeTyped (p : AST.pos) : typed = {pos = p, typ = T.Var (gensym ())}
+    in
+       case e of
+           E.Num (p, n) => E.Num (makeTyped p, n)
+         | E.Bool (p, b) => E.Bool (makeTyped p, b)
+         | E.Infix (p, bin, e1, e2) => E.Infix (makeTyped p, bin, assignTypeVars (env, e1), assignTypeVars (env, e2))
+         | E.App (p, e1, e2) => E.App (makeTyped p, assignTypeVars (env, e1), assignTypeVars (env, e2))
+         | E.If (p, e1, e2, e3) => E.If (makeTyped p, assignTypeVars (env, e1), assignTypeVars (env, e2), assignTypeVars (env, e3))
 
-       fun assign (_, E.Num (pos, n))               = E.Num (g pos, n)
-         | assign (_, E.Bool (pos, b))              = E.Bool (g pos, b)
-         | assign (env, E.Infix (pos, bin, e1, e2)) = E.Infix (g pos, bin, assign (env, e1), assign (env, e2))
-
-         | assign (env, E.App (pos, e1, e2))        = E.App (g pos, assign (env, e1), assign (env, e2))
-         | assign (env, E.If (pos, e1, e2, e3))     = E.If (g pos, assign (env, e1), assign (env, e2), assign (env, e3))
-
-         | assign (env, E.Fn (bound, self, x, e)) =
+         | E.Fn (boundp, selfp, x, body) =>
            let
-              val tv = gensym ()
+              val boundVar = gensym ()
            in
-              E.Fn ({pos=bound, typ = T.Var tv}, g self, x, assign (Env.insert (env, x, tv), e))
+              E.Fn ({pos = boundp, typ = T.Var boundVar}, makeTyped selfp, x, assignTypeVars (Env.insert (env, x, T.Var boundVar), body))
            end
 
-         | assign (env, E.Id (pos, id)) =
-           (case Env.find (env, id) of
-                SOME tv => E.Id ({pos=pos, typ=T.Var tv}, id)
-              | NONE => raise FreeVariable)
+         | E.Id (p, x) =>
+           (case Env.find (env, x) of
+                SOME typ => E.Id ({pos = p, typ = typ}, x)
+              | NONE => raise Unbound)
 
-         | assign (env, E.Tuple (pos, es)) = E.Tuple (g pos, map (fn e => assign (env, e)) es)
-    in
-       assign (Env.empty, ast)
+         | E.Tuple (p, es) => E.Tuple (makeTyped p, map (fn e => assignTypeVars (env, e)) es)
     end
 
 fun gettyp (E.Num ({typ, ...} : typed, _))  = typ
@@ -290,7 +291,7 @@ fun applySubToAST (e : typed E.t, sub : T.t StringMap.map) =
 fun typeof (e : AST.pos E.t) =
     (reset ();
      let
-        val ast = assignTypeVars e
+        val ast = assignTypeVars (Env.empty, e)
         val constraints = genCon (ast, Constraint.Set.empty)
         val substitution = unify constraints
      in
