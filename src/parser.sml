@@ -3,6 +3,7 @@
 
 structure Parser : sig
    val parse : 'a Token.t list -> ('a, 'a) AST.Pgm.t
+   exception SyntaxError of string
 end =
 struct
 
