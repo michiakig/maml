@@ -17,42 +17,36 @@ end
 
 type typed = {pos : AST.pos, typ: T.t}
 exception FreeVariable
-local
-   (* map from identifiers in the obj lang to type variable *)
-   structure Env = BinaryMapFn(
-      struct
-         type ord_key = string
-         val compare = String.compare
-      end)
-in
-   fun assignTypeVars (ast : AST.pos E.t) : typed E.t =
-       let
-          fun g (p : AST.pos) : typed = {pos = p, typ = T.Var (gensym ())}
 
-          fun assign (_, E.Num (pos, n))               = E.Num (g pos, n)
-            | assign (_, E.Bool (pos, b))              = E.Bool (g pos, b)
-            | assign (env, E.Infix (pos, bin, e1, e2)) = E.Infix (g pos, bin, assign (env, e1), assign (env, e2))
+structure Env = StringMap
 
-            | assign (env, E.App (pos, e1, e2))        = E.App (g pos, assign (env, e1), assign (env, e2))
-            | assign (env, E.If (pos, e1, e2, e3))     = E.If (g pos, assign (env, e1), assign (env, e2), assign (env, e3))
+fun assignTypeVars (ast : AST.pos E.t) : typed E.t =
+    let
+       fun g (p : AST.pos) : typed = {pos = p, typ = T.Var (gensym ())}
 
-            | assign (env, E.Fn (bound, self, x, e)) =
-              let
-                 val tv = gensym ()
-              in
-                 E.Fn ({pos=bound, typ = T.Var tv}, g self, x, assign (Env.insert (env, x, tv), e))
-              end
+       fun assign (_, E.Num (pos, n))               = E.Num (g pos, n)
+         | assign (_, E.Bool (pos, b))              = E.Bool (g pos, b)
+         | assign (env, E.Infix (pos, bin, e1, e2)) = E.Infix (g pos, bin, assign (env, e1), assign (env, e2))
 
-            | assign (env, E.Id (pos, id)) =
-              (case Env.find (env, id) of
-                   SOME tv => E.Id ({pos=pos, typ=T.Var tv}, id)
-                 | NONE => raise FreeVariable)
+         | assign (env, E.App (pos, e1, e2))        = E.App (g pos, assign (env, e1), assign (env, e2))
+         | assign (env, E.If (pos, e1, e2, e3))     = E.If (g pos, assign (env, e1), assign (env, e2), assign (env, e3))
 
-            | assign (env, E.Tuple (pos, es)) = E.Tuple (g pos, map (fn e => assign (env, e)) es)
-       in
-          assign (Env.empty, ast)
-       end
-end
+         | assign (env, E.Fn (bound, self, x, e)) =
+           let
+              val tv = gensym ()
+           in
+              E.Fn ({pos=bound, typ = T.Var tv}, g self, x, assign (Env.insert (env, x, tv), e))
+           end
+
+         | assign (env, E.Id (pos, id)) =
+           (case Env.find (env, id) of
+                SOME tv => E.Id ({pos=pos, typ=T.Var tv}, id)
+              | NONE => raise FreeVariable)
+
+         | assign (env, E.Tuple (pos, es)) = E.Tuple (g pos, map (fn e => assign (env, e)) es)
+    in
+       assign (Env.empty, ast)
+    end
 
 fun gettyp (E.Num ({typ, ...} : typed, _))  = typ
   | gettyp (E.Bool ({typ, ...}, _))        = typ
