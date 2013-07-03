@@ -112,11 +112,11 @@ struct
     *)
    structure Decl =
    struct
-      datatype 'a t =
-               Data of 'a
+      datatype ('a, 'b) t =
+               Data of 'b
                        * string list (* zero or more bound type vars *)
                        * string (* type name *)
-                       * (string * 'a Type.t option) list (* one or more ctors *)
+                       * (string * 'b Type.t option) list (* one or more ctors *)
 
              | Val of 'a * string * 'a Expr.t
       fun show d =
@@ -132,7 +132,7 @@ struct
 
    structure Pgm =
    struct
-      type 'a t = 'a Decl.t list
+      type ('a, 'b) t = ('a, 'b) Decl.t list
    end
 
 end

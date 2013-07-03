@@ -99,7 +99,7 @@ struct
       local
          structure D = AST.Decl
       in
-         fun make (d : 'a AST.Decl.t) : t =
+         fun make (d : ('a, 'b) AST.Decl.t) : t =
              case d of
                  D.Data (_, tyvars, name, ctors) => Data (tyvars, name, map (fn (c, NONE) => (c, NONE) | (c, SOME t) => (c, SOME (Type.make t))) ctors)
                | D.Val (_, x, e) => Val (x, Expr.make e)

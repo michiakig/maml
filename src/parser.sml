@@ -2,7 +2,7 @@
  *)
 
 structure Parser : sig
-   val parse : 'a Token.t list -> 'a AST.Pgm.t
+   val parse : 'a Token.t list -> ('a, 'a) AST.Pgm.t
 end =
 struct
 
@@ -124,7 +124,7 @@ structure Expr = AST.Expr
 (*
  * Given a list of tokens, parse one declaration, return it and the remaining input
  *)
-fun parseDecl (toks : 'a Token.t list) : 'a AST.Decl.t * 'a Token.t list =
+fun parseDecl (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t * 'a Token.t list =
     let
        val rest = ref toks
        fun has () = not (null (!rest))
@@ -361,9 +361,9 @@ fun parseDecl (toks : 'a Token.t list) : 'a AST.Decl.t * 'a Token.t list =
             ctor () :: ctors' ())
 
        (* parse a datatype declaration *)
-       and data pos : 'a AST.Decl.t =
+       and data pos : ('a, 'a) AST.Decl.t =
            let
-              (* parse the rest of a datatype declaration, after `datatype 'a` or `datatype ('a, 'b)` *)
+              (* parse the rest of a datatype declaration, after `datatype 'a` or `datatype ('a, 'a)` *)
               fun data' tyvars =
                   case peek () of
                       Token.Id (_, id) => (adv (); case peek () of
@@ -388,7 +388,7 @@ fun parseDecl (toks : 'a Token.t list) : 'a AST.Decl.t * 'a Token.t list =
                 | _ => data' []
            end
 
-       and decl () : 'a AST.Decl.t =
+       and decl () : ('a, 'a) AST.Decl.t =
            (log "decl";
             case peek () of
                 Token.Datatype pos => (adv ()
@@ -405,7 +405,7 @@ fun parseDecl (toks : 'a Token.t list) : 'a AST.Decl.t * 'a Token.t list =
        (decl (), !rest)
     end
 
-fun parse (toks : 'a Token.t list) : 'a AST.Pgm.t =
+fun parse (toks : 'a Token.t list) : ('a, 'a) AST.Pgm.t =
     let
        fun parse' (decl, []) = [decl]
          | parse' (decl, rest) =
