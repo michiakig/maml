@@ -8,7 +8,7 @@ structure P = AST.Pattern.Complex
 fun test _ =
     let
        fun c name = check (List.getItem, SOME (Show.pair (fn x => x, D.show)))
-                          (name, pred (fn (s, ast) => (MonoAST.Decl.make (Parser.parse (Lexer.lexStr s))) = ast))
+                          (name, pred (fn (s, ast) => (MonoAST.Decl.make (hd (Parser.parse (Lexer.lexStr s)))) = ast))
     in
        (
          c "parser/exprs"

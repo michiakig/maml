@@ -130,4 +130,9 @@ struct
           end
    end
 
+   structure Pgm =
+   struct
+      type 'a t = 'a Decl.t list
+   end
+
 end

@@ -1,11 +1,9 @@
 (* ML grammar, adapted from the Definition of Standard ML, appendix B fig 20 p63
  *)
 
-structure Parser (*  : sig  *)
-
-(* val parseExpr : 'a Token.t list -> 'a AST.Expr.t *)
-
-(* end  *)=
+structure Parser : sig
+   val parse : 'a Token.t list -> 'a AST.Pgm.t
+end =
 struct
 
    exception SyntaxError of string
@@ -124,9 +122,9 @@ fun getBinop (Token.Add _) = AST.Expr.Add
 structure Expr = AST.Expr
 
 (*
- * Given a list of tokens, parse one expression
+ * Given a list of tokens, parse one declaration, return it and the remaining input
  *)
-fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
+fun parseDecl (toks : 'a Token.t list) : 'a AST.Decl.t * 'a Token.t list =
     let
        val rest = ref toks
        fun has () = not (null (!rest))
@@ -404,7 +402,16 @@ fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
               | t => expected "datatype or val in top-level decl" t)
 
     in
-       decl ()
+       (decl (), !rest)
+    end
+
+fun parse (toks : 'a Token.t list) : 'a AST.Pgm.t =
+    let
+       fun parse' (decl, []) = [decl]
+         | parse' (decl, rest) =
+           decl :: parse' (parseDecl rest)
+    in
+       parse' (parseDecl toks)
     end
 
 end

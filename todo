@@ -1,10 +1,29 @@
+Reflect
+=======
+
+In order to typecheck the following program:
+
+datatype 'a tree = Leaf of 'a | Branch of 'a tree * 'a tree
+
+val reflect =
+ fn t =>
+    match t with
+        Leaf x => Leaf x
+      | Branch (t1, t2) => Branch (reflect t1, reflect t2)
+
+... we need:
+
+Fold over Decl.t list, check types build up type env
+type check/infer match/case expressions
+    "    "       datatype decls
+    "    "       rec val bindings
+    "    "       Ctor app
+
 Parser
 ======
 
 Infix of 'a * string * 'a t * 'a t
               ^^^^^^ Infix should take a string for the op, not a binop
-
-sequence of declarations into a Program.t (i.e. Dec.t list)
 
 return value of type `(SyntaxError, AST) either`
 
@@ -13,4 +32,7 @@ Type checker
 
 let expressions
 
-match/case expressions
+Lexer
+=====
+
+Comments
