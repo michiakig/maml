@@ -4,30 +4,6 @@ struct
 structure T = Type
 structure E = AST.Expr
 
-(* constraint relates types to types *)
-type constraint = {lhs: T.t, rhs: T.t}
-
-structure ConstrSet = BinarySetFn(
-   struct
-      type ord_key = constraint
-      val compare : constraint * constraint -> order =
-          fn ({lhs = lhs , rhs = rhs },
-              {lhs = lhs', rhs = rhs'}) =>
-             case T.compare (lhs, lhs') of
-                 EQUAL => T.compare (rhs, rhs')
-               | ord => ord
-   end)
-
-fun showConstr ({lhs, rhs} : constraint) =
-    "{" ^ T.show lhs ^ "," ^ T.show rhs ^ "}"
-
-structure ShowConstraintSet =
-   SetShowFn(structure Set = ConstrSet
-             structure Show = struct
-                type t = constraint
-                val show = showConstr
-             end)
-
 local
    val tVarId = ref 0
    val letters = "abcdefghijklmnopqrstuvwxyz"
@@ -39,7 +15,7 @@ in
    fun reset () = tVarId := 0
 end
 
-type info = {pos : AST.pos, typ: Type.t}
+type info = {pos : AST.pos, typ: T.t}
 exception FreeVariable
 local
    (* map from identifiers in the obj lang to type variable *)
@@ -51,7 +27,7 @@ local
 in
    fun assignTypeVars (ast : AST.pos E.t) : info E.t =
        let
-          fun g (p : AST.pos) : info = {pos = p, typ = Type.Var (gensym ())}
+          fun g (p : AST.pos) : info = {pos = p, typ = T.Var (gensym ())}
 
           fun assign (_, E.Num (pos, n))               = E.Num (g pos, n)
             | assign (_, E.Bool (pos, b))              = E.Bool (g pos, b)
@@ -64,12 +40,12 @@ in
               let
                  val tv = gensym ()
               in
-                 E.Fn ({pos=bound, typ = Type.Var tv}, g self, x, assign (Env.insert (env, x, tv), e))
+                 E.Fn ({pos=bound, typ = T.Var tv}, g self, x, assign (Env.insert (env, x, tv), e))
               end
 
             | assign (env, E.Id (pos, id)) =
               (case Env.find (env, id) of
-                   SOME tv => E.Id ({pos=pos, typ=Type.Var tv}, id)
+                   SOME tv => E.Id ({pos=pos, typ=T.Var tv}, id)
                  | NONE => raise FreeVariable)
 
             | assign (env, E.Tuple (pos, es)) = E.Tuple (g pos, map (fn e => assign (env, e)) es)
@@ -86,7 +62,7 @@ fun gettyp (E.Num ({typ, ...} : info, _))  = typ
   | gettyp (E.If ({typ, ...}, _, _, _))    = typ
   | gettyp (E.Fn (_, {typ, ...}, _, _))    = typ
 
-val rec genCon : (info E.t * ConstrSet.set) -> ConstrSet.set =
+val rec genCon : (info E.t * Constraint.Set.set) -> Constraint.Set.set =
  fn (e, constrs) =>
     let
        fun builtin (self, child1, child2, arg1, arg2, ret, cs) =
@@ -94,7 +70,7 @@ val rec genCon : (info E.t * ConstrSet.set) -> ConstrSet.set =
               val child1' = gettyp child1
               val child2' = gettyp child2
               val self' = gettyp self
-              val cs' = ConstrSet.addList (cs,
+              val cs' = Constraint.Set.addList (cs,
                                            [{lhs = self', rhs = ret},
                                             {lhs = child1', rhs = arg1},
                                             {lhs = child2', rhs = arg2}])
@@ -107,9 +83,9 @@ val rec genCon : (info E.t * ConstrSet.set) -> ConstrSet.set =
     in
        case e of
 
-           E.Bool ({typ, ...}, _) => ConstrSet.add (constrs, {lhs = typ, rhs = T.Bool})
+           E.Bool ({typ, ...}, _) => Constraint.Set.add (constrs, {lhs = typ, rhs = T.Bool})
 
-         | E.Num ({typ, ...}, _) => ConstrSet.add (constrs, {lhs = typ, rhs = T.Num})
+         | E.Num ({typ, ...}, _) => Constraint.Set.add (constrs, {lhs = typ, rhs = T.Num})
 
          | E.If ({typ, ...}, e1, e2, e3) =>
            let
@@ -124,7 +100,7 @@ val rec genCon : (info E.t * ConstrSet.set) -> ConstrSet.set =
                  {lhs = tv3, rhs = typ}
               ]
            in
-              ConstrSet.addList (constrs', constrs'')
+              Constraint.Set.addList (constrs', constrs'')
            end
 
          | E.Fn ({typ=bound, ...}, {typ=self, ...}, x, body) =>
@@ -132,7 +108,7 @@ val rec genCon : (info E.t * ConstrSet.set) -> ConstrSet.set =
               val tvbody = gettyp body
               val constrs' = genCon (body, constrs)
            in
-              ConstrSet.add (constrs', {lhs = self, rhs = T.Arrow (bound, tvbody)})
+              Constraint.Set.add (constrs', {lhs = self, rhs = T.Arrow (bound, tvbody)})
            end
 
          | E.Id _ => constrs
@@ -144,7 +120,7 @@ val rec genCon : (info E.t * ConstrSet.set) -> ConstrSet.set =
               val constrs' = genCon (f, constrs)
               val constrs'' = genCon (a, constrs')
            in
-              ConstrSet.add (constrs'',
+              Constraint.Set.add (constrs'',
                              {lhs = tvf, rhs = T.Arrow (tva, typ)})
            end
 
@@ -152,12 +128,12 @@ val rec genCon : (info E.t * ConstrSet.set) -> ConstrSet.set =
            let
               val constrs' = foldl genCon constrs es
            in
-              ConstrSet.add (constrs', {lhs = typ, rhs = T.Tuple (map gettyp es)})
+              Constraint.Set.add (constrs', {lhs = typ, rhs = T.Tuple (map gettyp es)})
            end
 
     end
 
-fun prettyPrintConstraint ({lhs, rhs} : constraint, env, ast) : string =
+fun prettyPrintConstraint ({lhs, rhs} : Constraint.t, env, ast) : string =
     let
        fun showTyp T.Num = "num"
          | showTyp T.Bool = "bool"
@@ -218,11 +194,11 @@ fun extend (tv : string, typ : T.t, s : T.t StringMap.map) : T.t StringMap.map =
        StringMap.insert (StringMap.mapi f s, tv, typ)
     end
 
-fun substituteInC s ({lhs, rhs} : constraint) : constraint =
+fun substituteInC s ({lhs, rhs} : Constraint.t) : Constraint.t =
     {lhs = substitute s lhs, rhs = substitute s rhs}
 
 exception VarBoundInSub
-val applyAndExtend : (T.t StringMap.map * constraint list * string * T.t) -> constraint list * T.t StringMap.map =
+val applyAndExtend : (T.t StringMap.map * Constraint.t list * string * T.t) -> Constraint.t list * T.t StringMap.map =
     fn (sub, stack, tv, typ) =>
        case StringMap.find (sub, tv) of
            (* unbound... *)
@@ -233,7 +209,7 @@ val applyAndExtend : (T.t StringMap.map * constraint list * string * T.t) -> con
          | SOME _ => raise VarBoundInSub
 
 exception Occurs
-fun occurs ({lhs, rhs} : constraint) : bool =
+fun occurs ({lhs, rhs} : Constraint.t) : bool =
     let
        fun occurs' (tv, T.Num) = false
          | occurs' (tv, T.Bool) = false
@@ -251,7 +227,7 @@ fun occurs ({lhs, rhs} : constraint) : bool =
     end
 
 
-fun unify (constrs : ConstrSet.set) =
+fun unify (constrs : Constraint.Set.set) =
     let
        fun unify' ([], acc) = acc
          | unify' ((c as {lhs, rhs}) :: stack, acc) =
@@ -283,7 +259,7 @@ fun unify (constrs : ConstrSet.set) =
 
                 | _ => raise TypeError)
     in
-       unify' (ConstrSet.listItems constrs, StringMap.empty)
+       unify' (Constraint.Set.listItems constrs, StringMap.empty)
     end
 
 fun applySubToAST (e : info E.t, sub : T.t StringMap.map) =
@@ -321,7 +297,7 @@ fun typeof (e : AST.pos E.t) =
     (reset ();
      let
         val ast = assignTypeVars e
-        val constraints = genCon (ast, ConstrSet.empty)
+        val constraints = genCon (ast, Constraint.Set.empty)
         val substitution = unify constraints
      in
         applySubToAST (ast, substitution)
