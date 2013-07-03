@@ -15,7 +15,7 @@ in
    fun reset () = tVarId := 0
 end
 
-type info = {pos : AST.pos, typ: T.t}
+type typed = {pos : AST.pos, typ: T.t}
 exception FreeVariable
 local
    (* map from identifiers in the obj lang to type variable *)
@@ -25,9 +25,9 @@ local
          val compare = String.compare
       end)
 in
-   fun assignTypeVars (ast : AST.pos E.t) : info E.t =
+   fun assignTypeVars (ast : AST.pos E.t) : typed E.t =
        let
-          fun g (p : AST.pos) : info = {pos = p, typ = T.Var (gensym ())}
+          fun g (p : AST.pos) : typed = {pos = p, typ = T.Var (gensym ())}
 
           fun assign (_, E.Num (pos, n))               = E.Num (g pos, n)
             | assign (_, E.Bool (pos, b))              = E.Bool (g pos, b)
@@ -54,7 +54,7 @@ in
        end
 end
 
-fun gettyp (E.Num ({typ, ...} : info, _))  = typ
+fun gettyp (E.Num ({typ, ...} : typed, _))  = typ
   | gettyp (E.Bool ({typ, ...}, _))        = typ
   | gettyp (E.Id ({typ, ...}, _))          = typ
   | gettyp (E.Infix ({typ, ...}, _, _, _)) = typ
@@ -62,7 +62,7 @@ fun gettyp (E.Num ({typ, ...} : info, _))  = typ
   | gettyp (E.If ({typ, ...}, _, _, _))    = typ
   | gettyp (E.Fn (_, {typ, ...}, _, _))    = typ
 
-val rec genCon : (info E.t * Constraint.Set.set) -> Constraint.Set.set =
+val rec genCon : (typed E.t * Constraint.Set.set) -> Constraint.Set.set =
  fn (e, constrs) =>
     let
        fun builtin (self, child1, child2, arg1, arg2, ret, cs) =
@@ -262,7 +262,7 @@ fun unify (constrs : Constraint.Set.set) =
        unify' (Constraint.Set.listItems constrs, StringMap.empty)
     end
 
-fun applySubToAST (e : info E.t, sub : T.t StringMap.map) =
+fun applySubToAST (e : typed E.t, sub : T.t StringMap.map) =
     let
        fun getType (tv, sub) =
            case StringMap.find (sub, tv) of
@@ -290,7 +290,7 @@ fun applySubToAST (e : info E.t, sub : T.t StringMap.map) =
          | E.Fn _ => e
 
          | E.Tuple ({typ = T.Var tv, pos}, es) => E.Tuple ({typ = getType (tv, sub), pos = pos}, map (fn e => applySubToAST (e, sub)) es)
-         | E.Tuple (info, es) => E.Tuple (info, map (fn e => applySubToAST (e, sub)) es)
+         | E.Tuple (typed, es) => E.Tuple (typed, map (fn e => applySubToAST (e, sub)) es)
     end
 
 fun typeof (e : AST.pos E.t) =
