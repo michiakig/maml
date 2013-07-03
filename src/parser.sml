@@ -305,6 +305,10 @@ fun parse (toks : 'a Token.t list) : 'a AST.Decl.t =
               | Token.Num (pos, n) => (adv (); Expr.Num (pos, n))
               | Token.Bool (pos, b) => (adv (); Expr.Bool (pos, b))
               | Token.Id (pos, s) => (adv (); Expr.Id (pos, s))
+
+              (* in the context of an atexp, parse a Ctor as an Ident. *)
+              | Token.Ctor (pos, s) => (adv (); Expr.Id (pos, s))
+
               | Token.LParen pos =>
                 (adv ();
                  let
