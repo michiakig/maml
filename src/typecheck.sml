@@ -22,6 +22,11 @@ exception Unbound (* thrown if there is an unbound ident *)
 
 fun makeTyped (p : AST.pos) : typed = {pos = p, typ = T.Var (gensym ())}
 
+fun getBoundVarsInPat (AST.Pattern.Complex.Var x) = [x]
+  | getBoundVarsInPat (AST.Pattern.Complex.Tuple ps) = List.concat (map getBoundVarsInPat ps)
+  | getBoundVarsInPat (AST.Pattern.Complex.Ctor (_, NONE)) = []
+  | getBoundVarsInPat (AST.Pattern.Complex.Ctor (_, SOME p)) = getBoundVarsInPat p
+
 (*
  * Given an expression, assign each sub expression type vars unless it's an ident bound in the existing gamma
  *)
@@ -47,8 +52,13 @@ fun assignTypeVars (env : T.t Env.map, e : AST.pos E.t) : typed E.t =
 
          | E.Tuple (p, es) => E.Tuple (makeTyped p, map (fn e => assignTypeVars (env, e)) es)
 
-         | E.Match (p, e, cs) => E.Match (makeTyped p, assignTypeVars (env, e), map (fn (p, e) => (p, assignTypeVars (env, e))) cs)
-
+         | E.Match (p, e, cs) =>
+           E.Match (makeTyped p, assignTypeVars (env, e),
+                    map (fn (p, e) =>
+                            let val vars = getBoundVarsInPat p
+                            in (p, assignTypeVars (foldl (fn (v, acc) => Env.insert (acc, v, T.Var (gensym ()))) env vars, e))
+                            end)
+                        cs)
 
 fun gettyp (E.Num ({typ, ...} : typed, _))  = typ
   | gettyp (E.Bool ({typ, ...}, _))        = typ
@@ -335,7 +345,12 @@ fun inferDecl (env : T.t Env.map, d : (AST.pos, AST.pos) AST.Decl.t) : ((typed, 
     case d of
         AST.Decl.Val (p, x, e) =>
            let
-              val typedExpr = inferExpr (env, e)
+              val tyvar = T.Var (gensym ())
+              val ast = assignTypeVars (Env.insert (env, x, tyvar), e)
+              val constraints = genCon (env, ast, Constraint.Set.empty)
+              val substitution = unify (Constraint.Set.add (constraints, {lhs = tyvar, rhs = gettyp ast}))
+
+              val typedExpr = applySubToAST (ast, substitution)
               val typ = gettyp typedExpr
            in
               (AST.Decl.Val (p, x, typedExpr), Env.insert (env, x, typ))
