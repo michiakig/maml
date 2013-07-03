@@ -105,6 +105,7 @@ struct
            | show (Arrow (_, x, y)) = "Arrow (" ^ show x ^ "," ^ show y ^ ")"
            | show (Tuple (_, ts)) = "Tuple ([" ^ String.concatWith "," (map show ts) ^ "])"
            | show (Paren (_, t)) = "Paren " ^ show t
+
    end
 
    (*
@@ -118,7 +119,7 @@ struct
                        * string (* type name *)
                        * (string * 'b Type.t option) list (* one or more ctors *)
 
-             | Val of 'a * string * 'a Expr.t
+             | Val of 'b * string * 'a Expr.t
       fun show d =
           let
              fun showCtor (c, NONE)   = "(" ^ c ^ ", NONE)"

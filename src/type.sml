@@ -2,22 +2,47 @@ structure Type : sig
 
 datatype t = Num
            | Bool
+           | Con of string * t list
            | Arrow of t * t
            | Tuple of t list
            | Var of string
            | List of t
+
 val compare : t * t -> order
 val show : t -> string
 val normalize : t -> t
+val fromAST : 'a AST.Type.t -> t
 
 end = struct
 
 datatype t = Num
            | Bool
+           | Con of string * t list
            | Arrow of t * t
            | Tuple of t list
            | Var of string
            | List of t
+
+fun fromAST (AST.Type.Var (_, x))        = Var x
+  | fromAST (AST.Type.Con (_, c, t))     = Con (c, [fromAST t])
+  | fromAST (AST.Type.Arrow (_, t1, t2)) = Arrow (fromAST t1, fromAST t2)
+  | fromAST (AST.Type.Tuple (_, ts))     = Tuple (map fromAST ts)
+  | fromAST (AST.Type.Paren (_, t))      = fromAST t
+
+local
+
+fun list c =
+    let
+       fun compare ([], []) = EQUAL
+         | compare (x::xs, y::ys) =
+           case c (x, y) of
+               EQUAL => compare (xs, ys)
+             | ord => ord
+    in
+       compare
+    end
+
+in
 
 (* boilerplate comparison stuff *)
 fun compare (Num    , Num)  = EQUAL
@@ -26,6 +51,14 @@ fun compare (Num    , Num)  = EQUAL
   | compare (Bool   , Bool) = EQUAL
   | compare (Bool   , Num)  = LESS
   | compare (Bool   , _)    = GREATER
+
+  | compare (Con (c, ts), Con (c', ts')) =
+    (case String.compare (c, c') of
+         EQUAL => list compare (ts, ts')
+       | ord => ord)
+  | compare (Con _, Num)  = LESS
+  | compare (Con _, Bool) = LESS
+  | compare (Con _, _) = GREATER
 
   | compare (Arrow (t1 , t2), Arrow (t1', t2')) =
     (case compare (t1, t1') of
@@ -37,11 +70,7 @@ fun compare (Num    , Num)  = EQUAL
 
   | compare (Tuple ts, Tuple ts') =
     (case Int.compare (length ts, length ts') of
-         EQUAL => let fun f ((t1, t2), EQUAL) = compare (t1, t2)
-                        | f (_, ord) = ord
-                      val xs = ListPair.zip (ts, ts')
-                  in foldl f (compare (hd xs)) (tl xs)
-                  end
+         EQUAL => list compare (ts, ts')
        | ord => ord)
   | compare (Tuple _, Num) = LESS
   | compare (Tuple _, Bool) = LESS
@@ -55,6 +84,8 @@ fun compare (Num    , Num)  = EQUAL
   | compare (List t, List t') = compare (t, t')
   | compare (List _, _)       = LESS
 
+end
+
 fun showArrowTyp (t1, t2) =
     let
        val s1 = case t1 of
@@ -67,7 +98,8 @@ fun showArrowTyp (t1, t2) =
     end
 and show Num              = "num"
   | show Bool             = "bool"
-  | show (Var s)          = s
+  | show (Var s)          = "'" ^ s
+  | show (Con (c, t))     = Show.list show t ^ " " ^ c
   | show (Arrow (t1, t2)) = showArrowTyp (t1, t2)
   | show (List t)         = "[" ^ show t ^ "]"
   | show (Tuple ts)         = "(" ^ String.concatWith "," (map show ts) ^ ")"
@@ -101,6 +133,7 @@ fun normalize t =
 
        fun normalize' Bool = Bool
          | normalize' Num = Num
+         | normalize' (Con (c, t)) = Con (c, map normalize' t)
          | normalize' (Var tv) = Var (getVar tv)
          | normalize' (Arrow (t1, t2)) = Arrow (normalize' t1, normalize' t2)
          | normalize' (List t) = List (normalize' t)
