@@ -1,4 +1,4 @@
-structure TypeInf =
+structure Typecheck =
 struct
 
 structure T = Type
