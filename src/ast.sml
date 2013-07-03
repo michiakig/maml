@@ -88,6 +88,19 @@ struct
             | Case (_, e, clauses)     => "Case (" ^ show e ^ "," ^ String.concatWith "|" (map showClause' clauses) ^ ")"
        end
 
+   fun walk f e =
+       case e of
+           Num (a, n)               => Num (f a, n)
+         | Bool (a, b)              => Bool (f a, b)
+         | Id (a, x)                => Id (f a, x)
+         | App (a, e1, e2)          => App (f a, walk f e1, walk f e2)
+         | If (a, e1, e2, e3)       => If (f a, walk f e1, walk f e2, walk f e3)
+         | Fn (a1, a2, x, e)        => Fn (f a1, f a2, x, walk f e)
+         | Let (a, x, e1, e2)       => Let (f a, x, walk f e1, walk f e2)
+         | Match (a, e1, clauses)    => Match (f a, walk f e1, map (fn (p, e2) => (p, walk f e2)) clauses)
+         | Infix (a, binop, e1, e2) => Infix (f a, binop, walk f e1, walk f e2)
+         | Tuple (a, es) => Tuple (f a, map (walk f) es)
+
    end
 
    (*
@@ -105,6 +118,14 @@ struct
            | show (Arrow (_, x, y)) = "Arrow (" ^ show x ^ "," ^ show y ^ ")"
            | show (Tuple (_, ts)) = "Tuple ([" ^ String.concatWith "," (map show ts) ^ "])"
            | show (Paren (_, t)) = "Paren " ^ show t
+
+      fun walk f t =
+          case t of
+              Var (a, x) => Var (f a, x)
+            | Con (a, c, t) => Con (f a, c, walk f t)
+            | Arrow (a, t1, t2) => Arrow (f a, walk f t1, walk f t2)
+            | Tuple (a, ts) => Tuple (f a, map (walk f) ts)
+            | Paren (a, t) => Paren (f a, walk f t)
 
    end
 
@@ -129,6 +150,12 @@ struct
                  Data (_, tyvars, name, cs) => "Data ([" ^ String.concatWith "," tyvars ^ "]," ^ name ^ ",[" ^ String.concatWith "," (map showCtor cs) ^ "])"
                | Val (_, x, e)      => "Val (" ^ x ^ "," ^ Expr.show e ^ ")"
           end
+
+      fun walk f g d =
+          case d of
+              Data (b, vars, name, ctors) => Data (g b, vars, name, map (fn (ctor, NONE) => (ctor, NONE) | (ctor, SOME t) => (ctor, SOME (Type.walk g t))) ctors)
+            | Val (b, x, e) => Val (g b, x, Expr.walk f e)
+
    end
 
    structure Pgm =
