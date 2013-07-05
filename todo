@@ -1,8 +1,6 @@
 Parser
 ======
 
-separate expression/type parser from declaration parser
-
 type annotations on any expression
 
 Infix of 'a * string * 'a t * 'a t

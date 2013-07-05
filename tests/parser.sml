@@ -7,76 +7,87 @@ structure D = MonoAST.Decl
 structure P = AST.Pattern.Complex
 fun test _ =
     let
-       fun c name = check (List.getItem, SOME (Show.pair (fn x => x, D.show)))
-                          (name, pred (fn (s, ast) => (MonoAST.Decl.make (hd (Parser.parse (Lexer.lexStr s)))) = ast))
+       fun decl name = check (List.getItem, SOME (Show.pair (fn x => x, D.show)))
+                             (name, pred (fn (s, ast) => (MonoAST.Decl.make (hd (Parser.parse (Lexer.lexStr s)))) = ast))
+
+       fun expr name = check (List.getItem, SOME (Show.pair (fn x => x, E.show)))
+                             (name, pred (fn (s, ast) => (MonoAST.Expr.make (Parser.parseExpr (Lexer.lexStr s))) = ast))
+
+       fun typ name = check (List.getItem, SOME (Show.pair (fn x => x, T.show)))
+                            (name, pred (fn (s, ast) => (MonoAST.Type.make (Parser.parseType (Lexer.lexStr s))) = ast))
     in
        (
-         c "parser/exprs"
+         expr "parser/exprs"
            [
-             ("val x1 = 0",               D.Val ("x1", E.Num 0))
-            ,("val x2 = foo",             D.Val ("x2", E.Id "foo"))
-            ,("val x3 = 1 + 2",           D.Val ("x3", E.Infix (AST.Expr.Add, E.Num 1, E.Num 2)))
-            ,("val x4 = 1 * 2 + 3",       D.Val ("x4", E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Mul, E.Num 1, E.Num 2), E.Num 3)))
-            ,("val x5 = 1 - 2 / 3",       D.Val ("x5", E.Infix (AST.Expr.Sub, E.Num 1, E.Infix (AST.Expr.Div, E.Num 2, E.Num 3))))
-            ,("val x6 = (1 - 2) * 3",     D.Val ("x6", E.Infix (AST.Expr.Mul, E.Infix (AST.Expr.Sub, E.Num 1, E.Num 2), E.Num 3)))
-            ,("val x7 = (1 - 2) * (3)",   D.Val ("x7", E.Infix (AST.Expr.Mul, E.Infix (AST.Expr.Sub, E.Num 1, E.Num 2), E.Num 3)))
-            ,("val x8 = (bar - 2) / foo", D.Val ("x8", E.Infix (AST.Expr.Div, E.Infix (AST.Expr.Sub, E.Id "bar", E.Num 2), E.Id "foo")))
-            ,("val x9 = 1 - 2 + 3 - 4",   D.Val ("x9", E.Infix (AST.Expr.Sub, E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Sub, E.Num 1, E.Num 2), E.Num 3), E.Num 4)))
+             ("0",               E.Num 0)
+            ,("foo",             E.Id "foo")
+            ,("1 + 2",           E.Infix (AST.Expr.Add, E.Num 1, E.Num 2))
+            ,("1 * 2 + 3",       E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Mul, E.Num 1, E.Num 2), E.Num 3))
+            ,("1 - 2 / 3",       E.Infix (AST.Expr.Sub, E.Num 1, E.Infix (AST.Expr.Div, E.Num 2, E.Num 3)))
+            ,("(1 - 2) * 3",     E.Infix (AST.Expr.Mul, E.Infix (AST.Expr.Sub, E.Num 1, E.Num 2), E.Num 3))
+            ,("(1 - 2) * (3)",   E.Infix (AST.Expr.Mul, E.Infix (AST.Expr.Sub, E.Num 1, E.Num 2), E.Num 3))
+            ,("(bar - 2) / foo", E.Infix (AST.Expr.Div, E.Infix (AST.Expr.Sub, E.Id "bar", E.Num 2), E.Id "foo"))
+            ,("1 - 2 + 3 - 4",   E.Infix (AST.Expr.Sub, E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Sub, E.Num 1, E.Num 2), E.Num 3), E.Num 4))
            ]
-       ; c "parser/fns"
+       ; expr "parser/fns"
            [
-             ("val f0 = fn x=>x",           D.Val ("f0", E.Fn ("x", E.Id "x")))
-            ,("val f1 = fn x => fn y => y", D.Val ("f1", E.Fn ("x", E.Fn ("y", E.Id "y"))))
-            ,("val f2=fn x => x + x",       D.Val ("f2", E.Fn ("x", E.Infix (AST.Expr.Add, E.Id "x", E.Id "x"))))
-            ,("val f3=fn x=>x+x",           D.Val ("f3", E.Fn ("x", E.Infix (AST.Expr.Add, E.Id "x", E.Id "x"))))
+             ("fn x=>x",           E.Fn ("x", E.Id "x"))
+            ,("fn x => fn y => y", E.Fn ("x", E.Fn ("y", E.Id "y")))
+            ,("fn x => x + x",     E.Fn ("x", E.Infix (AST.Expr.Add, E.Id "x", E.Id "x")))
+            ,("fn x=>x+x",         E.Fn ("x", E.Infix (AST.Expr.Add, E.Id "x", E.Id "x")))
            ]
-       ; c "parser/parens"
+       ; expr "parser/parens"
            [
-             ("val p0 = (1)",                          D.Val ("p0", E.Num 1))
-            ,("val p1 = (x)",                          D.Val ("p1", E.Id "x"))
-            ,("val p2 =(true)",                        D.Val ("p2", E.Bool true))
-            ,("val p3 =if (true) then (x) else ((y))", D.Val ("p3", E.If (E.Bool true, E.Id "x", E.Id "y")))
+             ("(1)",                          E.Num 1)
+            ,("(x)",                          E.Id "x")
+            ,("(true)",                       E.Bool true)
+            ,("if (true) then (x) else ((y))",E.If (E.Bool true, E.Id "x", E.Id "y"))
            ]
-       ; c "parser/tuples"
+       ; expr "parser/tuples"
            [
-             ("val t0 = (1, 2)", D.Val ("t0", E.Tuple [E.Num 1, E.Num 2]))
-            ,("val t1 = (1, 2, 3)", D.Val ("t1", E.Tuple [E.Num 1, E.Num 2, E.Num 3]))
-            ,("val t2 = (true, 2, fn x => x)", D.Val ("t2", E.Tuple [E.Bool true, E.Num 2, E.Fn ("x", E.Id "x")]))
+             ("(1, 2)", E.Tuple [E.Num 1, E.Num 2])
+            ,("(1, 2, 3)", E.Tuple [E.Num 1, E.Num 2, E.Num 3])
+            ,("(true, 2, fn x => x)", E.Tuple [E.Bool true, E.Num 2, E.Fn ("x", E.Id "x")])
            ]
-       ; c "parser/app"
+       ; expr "parser/app"
            [
-             ("val a0 = x y",                              D.Val ("a0", E.App (E.Id "x", E.Id "y")))
-            ,("val a1 = (x y)",                            D.Val ("a1", E.App (E.Id "x", E.Id "y")))
-            ,("val a2 = (fn x => x) 1",                    D.Val ("a2", E.App (E.Fn ("x", E.Id "x"), E.Num 1)))
-            ,("val a3 = (fn f => f 1)",                    D.Val ("a3", E.Fn ("f", E.App (E.Id "f", E.Num 1))))
-            ,("val a4 = if not true then false else true", D.Val ("a4", E.If (E.App (E.Id "not", E.Bool true), E.Bool false, E.Bool true)))
-            ,("val a5 = if true then not false else true", D.Val ("a5", E.If (E.Bool true, E.App (E.Id "not", E.Bool false), E.Bool true)))
-            ,("val a6 = if true then false else not true", D.Val ("a6", E.If (E.Bool true, E.Bool false, E.App (E.Id "not", E.Bool true))))
-            ,("val a7 = let val f = fn x => x in f 1 end", D.Val ("a7", E.Let ("f", E.Fn ("x", E.Id "x"), E.App (E.Id "f", E.Num 1))))
+             ("x y",                              E.App (E.Id "x", E.Id "y"))
+            ,("(x y)",                            E.App (E.Id "x", E.Id "y"))
+            ,("(fn x => x) 1",                    E.App (E.Fn ("x", E.Id "x"), E.Num 1))
+            ,("(fn f => f 1)",                    E.Fn ("f", E.App (E.Id "f", E.Num 1)))
+            ,("if not true then false else true", E.If (E.App (E.Id "not", E.Bool true), E.Bool false, E.Bool true))
+            ,("if true then not false else true", E.If (E.Bool true, E.App (E.Id "not", E.Bool false), E.Bool true))
+            ,("if true then false else not true", E.If (E.Bool true, E.Bool false, E.App (E.Id "not", E.Bool true)))
+            ,("let val f = fn x => x in f 1 end", E.Let ("f", E.Fn ("x", E.Id "x"), E.App (E.Id "f", E.Num 1)))
            ]
-       ; c "parser/case"
+       ; expr "parser/case"
            [
-             ("val m1 = case f x of y => 0 | z => 1",           D.Val ("m1", E.Case (E.App (E.Id "f", E.Id "x"), [(P.Var "y", E.Num 0), (P.Var "z", E.Num 1)])))
-            ,("val m3 = case x of y => if y then 1 else 2",     D.Val ("m3", E.Case (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))])))
-            ,("val m4 = case (x) of y => (if y then 1 else 2)", D.Val ("m4", E.Case (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))])))
+             ("case f x of y => 0 | z => 1",           E.Case (E.App (E.Id "f", E.Id "x"), [(P.Var "y", E.Num 0), (P.Var "z", E.Num 1)]))
+            ,("case x of y => if y then 1 else 2",     E.Case (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))]))
+            ,("case (x) of y => (if y then 1 else 2)", E.Case (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))]))
 
-            ,("val m0 = case x of Nil => 0 | Cons (y, ys) => 1",
-              D.Val ("m0", E.Case (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)])))
+            ,("case x of Nil => 0 | Cons (y, ys) => 1",
+              E.Case (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)]))
 
-            ,("val m00 = case x of (Nil) => 0 | Cons (y, ys) => 1",
-              D.Val ("m00", E.Case (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)])))
+            ,("case x of (Nil) => 0 | Cons (y, ys) => 1",
+              E.Case (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)]))
 
-            ,("val m2 = case f x of y => g y | z => h z",
-              D.Val ("m2", E.Case (E.App (E.Id "f", E.Id "x"), [(P.Var "y", E.App (E.Id "g", E.Id "y")), (P.Var "z", E.App (E.Id "h", E.Id "z"))])))
+            ,("case f x of y => g y | z => h z",
+              E.Case (E.App (E.Id "f", E.Id "x"), [(P.Var "y", E.App (E.Id "g", E.Id "y")), (P.Var "z", E.App (E.Id "h", E.Id "z"))]))
 
-            ,("val m5 = case x of\n   Nil          => 0\n | Cons (y, Nil) => 1\n | Cons (y, ys)    => 2\n",
-              D.Val ("m5", E.Case (E.Id "x", [
+            ,("case x of\n   Nil          => 0\n | Cons (y, Nil) => 1\n | Cons (y, ys)    => 2\n",
+              E.Case (E.Id "x", [
                          (P.Ctor ("Nil", NONE), E.Num 0)
                         ,(P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Ctor ("Nil", NONE)])), E.Num 1)
-                        ,(P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 2)])))
+                        ,(P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 2)]))
            ]
 
-       ; c "parser/val"
+       ; typ "parser/typ"
+             [
+               ("'a", T.Var "a")
+             ]
+
+       ; decl "parser/val"
            [
              ("val x = 1",            D.Val ("x", E.Num 1))
             ,("val xx = 1 + 2 + 3",   D.Val ("xx", E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Add, E.Num 1, E.Num 2), E.Num 3)))
@@ -115,7 +126,7 @@ fun test _ =
                                                                                                    E.Let ("x", E.Num 2, E.Id "x"))))
            ]
 
-       ; c "parser/data"
+       ; decl "parser/data"
            [
              ("datatype color = Red | Blue | Green",
               D.Data ([], "color", [("Red", NONE), ("Blue", NONE), ("Green", NONE)]))

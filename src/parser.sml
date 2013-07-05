@@ -3,6 +3,9 @@
 
 structure Parser : sig
    val parse : 'a Token.t list -> ('a, 'a) AST.Pgm.t
+   val parseDecl : 'a Token.t list -> ('a, 'a) AST.Decl.t
+   val parseExpr : 'a Token.t list -> 'a AST.Expr.t
+   val parseType : 'a Token.t list -> 'a AST.Type.t
    exception SyntaxError of string
 end =
 struct
@@ -33,7 +36,7 @@ struct
       (*
        * given a list of tokens, parse a single type expression, and return the unconsumed input
        *)
-      fun parseType (ts : 'a Token.t list) : 'a AST.Type.t * 'a Token.t list =
+      fun parseType' (ts : 'a Token.t list) : 'a AST.Type.t * 'a Token.t list =
           let
              val rest = ref ts
              fun has () = not (null (!rest))
@@ -125,7 +128,7 @@ structure Expr = AST.Expr
 (*
  * Given a list of tokens, parse one declaration, return it and the remaining input
  *)
-fun parseDecl (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t * 'a Token.t list =
+fun parseExpr' (toks : 'a Token.t list) : 'a AST.Expr.t * 'a Token.t list =
     let
        val rest = ref toks
        fun has () = not (null (!rest))
@@ -333,7 +336,29 @@ fun parseDecl (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t * 'a Token.t list =
            (log "appexp";
             appexp' (atexp ()))
 
-       and ctor () : string * 'a AST.Type.t option =
+    in
+       (expr (), !rest)
+    end
+
+fun parseDecl' (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t * 'a Token.t list =
+    let
+       val rest = ref toks
+       fun has () = not (null (!rest))
+       fun adv () = rest := tl (!rest)
+       fun next () = hd (!rest) before adv ()
+       fun getNext () = if has () then SOME (next ()) else NONE
+       fun peek () = hd (!rest)
+       fun err s = raise SyntaxError ("err " ^ s)
+       fun expected s t = raise SyntaxError ("expected " ^ s ^ ", got " ^ Token.show t)
+
+       fun log s =
+           let val t = if has () then Token.show (peek ()) else ".."
+           in if debug
+                 then print (s ^ "(" ^ t ^ ")\n")
+              else ()
+           end
+
+       fun ctor () : string * 'a AST.Type.t option =
            (log "ctor";
             case peek () of
                 Token.Ctor (_, name) => (adv ();
@@ -341,7 +366,7 @@ fun parseDecl (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t * 'a Token.t list =
                                          then
                                             case peek () of
                                                 Token.Of _ => (adv ();
-                                                               let val (typ, rest') = parseType (!rest)
+                                                               let val (typ, rest') = parseType' (!rest)
                                                                in rest := rest' ; (name, SOME typ)
                                                                end)
                                               | _ => (name, NONE)
@@ -397,11 +422,16 @@ fun parseDecl (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t * 'a Token.t list =
               | Token.Val pos => (adv ();
                                   case peek () of
                                       Token.Id (_, id) => (adv (); case peek () of
-                                                                       Token.Eqls _ => (adv (); AST.Decl.Val (pos, id, expr ()))
+                                                                       Token.Eqls _ => (adv ();
+                                                                                        let
+                                                                                           val (e, rest') = parseExpr' (!rest)
+                                                                                        in
+                                                                                           rest := rest'
+                                                                                         ; AST.Decl.Val (pos, id, e)
+                                                                                        end)
                                                                      | t => expected "= in val decl" t)
                                     | t => expected "ident in val decl" t)
               | t => expected "datatype or val in top-level decl" t)
-
     in
        (decl (), !rest)
     end
@@ -410,9 +440,30 @@ fun parse (toks : 'a Token.t list) : ('a, 'a) AST.Pgm.t =
     let
        fun parse' (decl, []) = [decl]
          | parse' (decl, rest) =
-           decl :: parse' (parseDecl rest)
+           decl :: parse' (parseDecl' rest)
     in
-       parse' (parseDecl toks)
+       parse' (parseDecl' toks)
+    end
+
+fun parseExpr (toks : 'a Token.t list) : 'a AST.Expr.t =
+    let
+       val (ast, _) = parseExpr' toks
+    in
+       ast
+    end
+
+fun parseType (toks : 'a Token.t list) : 'a AST.Type.t =
+    let
+       val (ast, _) = parseType' toks
+    in
+       ast
+    end
+
+fun parseDecl (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t =
+    let
+       val (ast, _) = parseDecl' toks
+    in
+       ast
     end
 
 end
