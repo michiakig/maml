@@ -85,11 +85,35 @@ fun test _ =
        ; typ "parser/type"
              [
                ("'a", T.Var "a")
+              ,("'a list tree", T.Con ("tree", T.Con ("list", T.Var "a")))
               ,("'a list", T.Con ("list", T.Var "a"))
               (* ,("('a, 'b) either", ... ) *)
+
               ,("'a * 'b", T.Tuple [T.Var "a", T.Var "b"])
+              ,("'a * 'b * 'c", T.Tuple [T.Var "a", T.Var "b", T.Var "c"])
+              ,("('a)", T.Paren (T.Var "a"))
+              ,("('a * 'b) * 'c", T.Tuple [T.Paren (T.Tuple [T.Var "a", T.Var "b"]), T.Var "c"])
+              ,("'a * ('b * 'c)", T.Tuple [T.Var "a", T.Paren (T.Tuple [T.Var "b", T.Var "c"])])
+
+              (* ctor app has higher prec than * (tuple op) *)
+              ,("'a list * 'b", T.Tuple [T.Con ("list", T.Var "a"), T.Var "b"])
+              ,("'a * 'b list", T.Tuple [T.Var "a", T.Con ("list", T.Var "b")])
+              ,("('a * 'b) list", T.Con ("list", T.Paren (T.Tuple [T.Var "a", T.Var "b"])))
+
+              (* ... and higher prec than -> (arrow) *)
               ,("'a list -> 'a", T.Arrow (T.Con ("list", T.Var "a"), T.Var "a"))
-              ,("'a * 'b -> 'a", T.Arrow (T.Tuple [T.Var "a", T.Var "b"], T.Var "a"))
+              ,("'a -> 'a list", T.Arrow (T.Var "a", T.Con ("list", T.Var "a"))
+              ,("('a -> 'a) list", T.Arrow (T.Var "a", T.Con ("list", T.Var "a"))
+
+              (* arrow associates to the right *)
+              ,("'a -> 'a", T.Arrow (T.Var "a", T.Var "a"))
+              ,("'a -> 'a -> 'a", T.Arrow (T.Var "a", T.Arrow (T.Var "a", T.Var "a")))
+              ,("('a -> 'a) -> 'a", T.Arrow (T.Paren (T.Arrow (T.Var "a", T.Var "a")), T.Var "a"))
+              ,("('a -> 'a) -> 'a -> 'a", T.Arrow (T.Paren (T.Arrow (T.Var "a", T.Var "a")), T.Arrow (T.Var "a", T.Var "a")))
+
+              ,("'a * 'b -> 'c", T.Arrow (T.Tuple [T.Var "a", T.Var "b"], T.Var "c"))
+              ,("('a * 'b) -> 'c", T.Arrow (T.Paren (T.Tuple [T.Var "a", T.Var "b"]), T.Var "c"))
+              ,("'a * ('b -> 'c)", T.Tuple [T.Var "a", T.Paren (T.Arrow (T.Var "b", T.Var "c"))])
              ]
 
        ; decl "parser/val"

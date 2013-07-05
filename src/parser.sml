@@ -63,10 +63,14 @@ struct
                  (log "atom";
                   case peek () of
                       SOME (Token.TypeVar v) => (adv (); AST.Type.Var v)
-                    | SOME (Token.LParen pos)  => (adv (); case peek () of
-                                                               SOME (Token.RParen _) => AST.Type.Paren (pos, infexp 0)
-                                                             | SOME t => expected "RParen" t
-                                                             | NONE => raise SyntaxError "unexpected EOF")
+                    | SOME (Token.LParen pos)  => (adv ();
+                                                   let val t = infexp 0
+                                                   in
+                                                      case peek () of
+                                                          SOME (Token.RParen _) => (adv (); AST.Type.Paren (pos, t))
+                                                        | SOME t => expected "RParen" t
+                                                        | NONE => raise SyntaxError "unexpected EOF"
+                                                   end)
                     | SOME t             => expected "TypeVar or LParen" t
                     | NONE               => raise SyntaxError "unexpected EOF")
 
