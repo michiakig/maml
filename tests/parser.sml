@@ -82,9 +82,14 @@ fun test _ =
                         ,(P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 2)]))
            ]
 
-       ; typ "parser/typ"
+       ; typ "parser/type"
              [
                ("'a", T.Var "a")
+              ,("'a list", T.Con ("list", T.Var "a"))
+              (* ,("('a, 'b) either", ... ) *)
+              ,("'a * 'b", T.Tuple [T.Var "a", T.Var "b"])
+              ,("'a list -> 'a", T.Arrow (T.Con ("list", T.Var "a"), T.Var "a"))
+              ,("'a * 'b -> 'a", T.Arrow (T.Tuple [T.Var "a", T.Var "b"], T.Var "a"))
              ]
 
        ; decl "parser/val"
