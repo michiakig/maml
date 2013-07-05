@@ -12,10 +12,9 @@ struct
                  | If of t * t * t
                  | Fn of string * t
                  | Let of string * t * t
-                 | Match of t * (AST.Pattern.Complex.t * t) list
+                 | Case of t * (AST.Pattern.Complex.t * t) list
                  | Infix of AST.Expr.binop * t * t
                  | Tuple of t list
-                 | Case of t * (AST.Pattern.Simple.t * t) list
 
       fun show e =
           let
@@ -30,10 +29,9 @@ struct
                | If (e1, e2, e3)       => "If (" ^ show e1 ^ "," ^ show e2 ^ "," ^ show e3 ^ ")"
                | Fn (x, e)             => "Fn (" ^ x ^ "," ^ show e ^ ")"
                | Let (x, e1, e2)       => "Let (" ^ x ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
-               | Match (e, clauses)    => "Match (" ^ show e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
+               | Case (e, clauses)    => "Case (" ^ show e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
                | Tuple es    => "Tuple [" ^ String.concatWith "," (map show es) ^ "]"
 
-               | Case (e, clauses)     => "Case (" ^ show e ^ "," ^ String.concatWith "|" (map showClause' clauses) ^ ")"
                | Infix (binop, e1, e2) => "Infix (" ^ AST.Expr.showBinop binop ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
           end
 
@@ -49,8 +47,7 @@ struct
                | E.If (_, e1, e2, e3)    => If (make e1, make e2, make e3)
                | E.Fn (_, _, x, e)          => Fn (x, make e)
                | E.Let (_, x, e1, e2)    => Let (x, make e1, make e2)
-               | E.Match (_, e, clauses) => Match (make e, map (fn (p, e) => (p, make e)) clauses)
-               | E.Case (_, e, clauses)  => Case (make e, map (fn (p, e) => (p, make e)) clauses)
+               | E.Case (_, e, clauses) => Case (make e, map (fn (p, e) => (p, make e)) clauses)
                | E.Infix (_, b, e1, e2)  => Infix (b, make e1, make e2)
                | E.Tuple (_, es)  => Tuple (map make es)
       end 

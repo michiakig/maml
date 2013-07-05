@@ -184,9 +184,9 @@ fun parseDecl (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t * 'a Token.t list =
                 (adv ()
                 ; let val e1 = expr ()
                   in case peek () of
-                         Token.With _ => (adv ()
-                                     ; Expr.Match (pos, e1, clauses ()))
-                       | t => expected "with" t
+                         Token.Of _ => (adv ()
+                                     ; Expr.Case (pos, e1, clauses ()))
+                       | t => expected "of" t
                   end)
 
               | _ => infexp 0)

@@ -52,8 +52,8 @@ fun assignTypeVars (env : T.t Env.map, e : AST.pos E.t) : typed E.t =
 
          | E.Tuple (p, es) => E.Tuple (makeTyped p, map (fn e => assignTypeVars (env, e)) es)
 
-         | E.Match (p, e, cs) =>
-           E.Match (makeTyped p, assignTypeVars (env, e),
+         | E.Case (p, e, cs) =>
+           E.Case (makeTyped p, assignTypeVars (env, e),
                     map (fn (p, e) =>
                             let val vars = getBoundVarsInPat p
                             in (p, assignTypeVars (foldl (fn (v, acc) => Env.insert (acc, v, T.Var (gensym ()))) env vars, e))
@@ -68,7 +68,7 @@ fun gettyp (E.Num ({typ, ...} : typed, _))  = typ
   | gettyp (E.If ({typ, ...}, _, _, _))    = typ
   | gettyp (E.Fn (_, {typ, ...}, _, _))    = typ
   | gettyp (E.Tuple ({typ, ...}, _)) = typ
-  | gettyp (E.Match ({typ, ...}, _, _)) = typ
+  | gettyp (E.Case ({typ, ...}, _, _)) = typ
 
 exception TypeError
 
@@ -141,7 +141,7 @@ val rec genCon : (T.t Env.map * typed E.t * Constraint.Set.set) -> Constraint.Se
               Constraint.Set.add (constrs', {lhs = typ, rhs = T.Tuple (map gettyp es)})
            end
 
-         | E.Match ({typ, ...}, e1, clauses) =>
+         | E.Case ({typ, ...}, e1, clauses) =>
            let
               (* TODO: type check patterns *)
               fun gen ((pat, exp), cs) =
@@ -326,9 +326,9 @@ fun applySubToAST (e : typed E.t, sub : T.t StringMap.map) =
          | E.Tuple ({typ = T.Var tv, pos}, es) => E.Tuple ({typ = getType (tv, sub), pos = pos}, map (fn e => applySubToAST (e, sub)) es)
          | E.Tuple (typed, es) => E.Tuple (typed, map (fn e => applySubToAST (e, sub)) es)
 
-         | E.Match ({typ = T.Var tv, pos}, e1, es) =>
-           E.Match ({typ = getType (tv, sub), pos = pos}, applySubToAST (e1, sub), map (fn (p, e) => (p, applySubToAST (e, sub))) es)
-         | E.Match (typed, e1, es) => E.Match (typed, applySubToAST (e1, sub), map (fn (p, e) => (p, applySubToAST (e, sub))) es)
+         | E.Case ({typ = T.Var tv, pos}, e1, es) =>
+           E.Case ({typ = getType (tv, sub), pos = pos}, applySubToAST (e1, sub), map (fn (p, e) => (p, applySubToAST (e, sub))) es)
+         | E.Case (typed, e1, es) => E.Case (typed, applySubToAST (e1, sub), map (fn (p, e) => (p, applySubToAST (e, sub))) es)
     end
 
 fun inferExpr (env : T.t Env.map, e : AST.pos E.t) : typed E.t =

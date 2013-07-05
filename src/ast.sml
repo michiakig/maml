@@ -50,11 +50,9 @@ struct
                  (* one info field for bound var, one for self *)
                  | Fn of 'a * 'a * string * 'a t
                  | Let of 'a * string * 'a t * 'a t
-                 | Match of 'a * 'a t * (Pattern.Complex.t * 'a t) list
+                 | Case of 'a * 'a t * (Pattern.Complex.t * 'a t) list
                  | Infix of 'a * binop * 'a t * 'a t
                  | Tuple of 'a * 'a t list
-
-                 | Case of 'a * 'a t * (Pattern.Simple.t * 'a t) list
 
    fun getInfo (Num (info, _))       = info
      | getInfo (Bool (info, _))      = info
@@ -64,10 +62,9 @@ struct
      | getInfo (Fn (_, info, _, _))  = info
      | getInfo (App (info, _, _))    = info
      | getInfo (Let (info, _, _, _)) = info
-     | getInfo (Match (info, _, _))  = info
+     | getInfo (Case (info, _, _))  = info
      | getInfo (Infix (info, _, _, _)) = info
      | getInfo (Tuple (info, _))     = info
-     | getInfo (Case (info, _, _))   = info
 
    fun show e =
        let
@@ -82,10 +79,9 @@ struct
             | If (_, e1, e2, e3)       => "If (" ^ show e1 ^ "," ^ show e2 ^ "," ^ show e3 ^ ")"
             | Fn (_, _, x, e)          => "Fn (" ^ x ^ "," ^ show e ^ ")"
             | Let (_, x, e1, e2)       => "Let (" ^ x ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
-            | Match (_, e, clauses)    => "Match (" ^ show e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
+            | Case (_, e, clauses)    => "Case (" ^ show e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
             | Infix (_, binop, e1, e2) => "Infix (" ^ showBinop binop ^ "," ^ show e1 ^ "," ^ show e1 ^ ")"
             | Tuple (_, es) => "Tuple [" ^ String.concatWith "," (map show es) ^ "]"
-            | Case (_, e, clauses)     => "Case (" ^ show e ^ "," ^ String.concatWith "|" (map showClause' clauses) ^ ")"
        end
 
    fun walk f e =
@@ -97,7 +93,7 @@ struct
          | If (a, e1, e2, e3)       => If (f a, walk f e1, walk f e2, walk f e3)
          | Fn (a1, a2, x, e)        => Fn (f a1, f a2, x, walk f e)
          | Let (a, x, e1, e2)       => Let (f a, x, walk f e1, walk f e2)
-         | Match (a, e1, clauses)    => Match (f a, walk f e1, map (fn (p, e2) => (p, walk f e2)) clauses)
+         | Case (a, e1, clauses)    => Case (f a, walk f e1, map (fn (p, e2) => (p, walk f e2)) clauses)
          | Infix (a, binop, e1, e2) => Infix (f a, binop, walk f e1, walk f e2)
          | Tuple (a, es) => Tuple (f a, map (walk f) es)
 

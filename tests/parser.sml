@@ -54,23 +54,23 @@ fun test _ =
             ,("val a6 = if true then false else not true", D.Val ("a6", E.If (E.Bool true, E.Bool false, E.App (E.Id "not", E.Bool true))))
             ,("val a7 = let val f = fn x => x in f 1 end", D.Val ("a7", E.Let ("f", E.Fn ("x", E.Id "x"), E.App (E.Id "f", E.Num 1))))
            ]
-       ; c "parser/match"
+       ; c "parser/case"
            [
-             ("val m1 = match f x with y => 0 | z => 1",           D.Val ("m1", E.Match (E.App (E.Id "f", E.Id "x"), [(P.Var "y", E.Num 0), (P.Var "z", E.Num 1)])))
-            ,("val m3 = match x with y => if y then 1 else 2",     D.Val ("m3", E.Match (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))])))
-            ,("val m4 = match (x) with y => (if y then 1 else 2)", D.Val ("m4", E.Match (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))])))
+             ("val m1 = case f x of y => 0 | z => 1",           D.Val ("m1", E.Case (E.App (E.Id "f", E.Id "x"), [(P.Var "y", E.Num 0), (P.Var "z", E.Num 1)])))
+            ,("val m3 = case x of y => if y then 1 else 2",     D.Val ("m3", E.Case (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))])))
+            ,("val m4 = case (x) of y => (if y then 1 else 2)", D.Val ("m4", E.Case (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))])))
 
-            ,("val m0 = match x with Nil => 0 | Cons (y, ys) => 1",
-              D.Val ("m0", E.Match (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)])))
+            ,("val m0 = case x of Nil => 0 | Cons (y, ys) => 1",
+              D.Val ("m0", E.Case (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)])))
 
-            ,("val m00 = match x with (Nil) => 0 | Cons (y, ys) => 1",
-              D.Val ("m00", E.Match (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)])))
+            ,("val m00 = case x of (Nil) => 0 | Cons (y, ys) => 1",
+              D.Val ("m00", E.Case (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0), (P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 1)])))
 
-            ,("val m2 = match f x with y => g y | z => h z",
-              D.Val ("m2", E.Match (E.App (E.Id "f", E.Id "x"), [(P.Var "y", E.App (E.Id "g", E.Id "y")), (P.Var "z", E.App (E.Id "h", E.Id "z"))])))
+            ,("val m2 = case f x of y => g y | z => h z",
+              D.Val ("m2", E.Case (E.App (E.Id "f", E.Id "x"), [(P.Var "y", E.App (E.Id "g", E.Id "y")), (P.Var "z", E.App (E.Id "h", E.Id "z"))])))
 
-            ,("val m5 = match x with\n   Nil          => 0\n | Cons (y, Nil) => 1\n | Cons (y, ys)    => 2\n",
-              D.Val ("m5", E.Match (E.Id "x", [
+            ,("val m5 = case x of\n   Nil          => 0\n | Cons (y, Nil) => 1\n | Cons (y, ys)    => 2\n",
+              D.Val ("m5", E.Case (E.Id "x", [
                          (P.Ctor ("Nil", NONE), E.Num 0)
                         ,(P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Ctor ("Nil", NONE)])), E.Num 1)
                         ,(P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 2)])))
@@ -102,11 +102,11 @@ fun test _ =
               D.Val ("bb", E.If (E.Bool true, E.If (E.Bool false, E.Bool true, E.Bool false), E.Bool true)))
 
 
-            ,("val q = match x with\n   Nil          => 0\n | Cons (y, Nil) => 1\n | Cons (y, ys)    => 2\n",
-              D.Val ("q", E.Match (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0)
+            ,("val q = case x of\n   Nil          => 0\n | Cons (y, Nil) => 1\n | Cons (y, ys)    => 2\n",
+              D.Val ("q", E.Case (E.Id "x", [(P.Ctor ("Nil", NONE), E.Num 0)
                                              ,(P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Ctor ("Nil", NONE)])), E.Num 1)
                                              ,(P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 2)])))
-            ,("val qq = match x with y => if y then 1 else 2", D.Val ("qq", E.Match (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))])))
+            ,("val qq = case x of y => if y then 1 else 2", D.Val ("qq", E.Case (E.Id "x", [(P.Var "y", E.If (E.Id "y", E.Num 1, E.Num 2))])))
 
             ,("val u = x y", D.Val ("u", E.App (E.Id "x", E.Id "y")))
             ,("val uu = (x y)", D.Val ("uu", E.App (E.Id "x", E.Id "y")))
