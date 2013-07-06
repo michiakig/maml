@@ -10,6 +10,8 @@ Infix of 'a * string * 'a t * 'a t
 
 return value of type `(SyntaxError, AST) either`
 
+open question: is it possible to remove Type.Paren ?
+
 Type checker
 ============
 
