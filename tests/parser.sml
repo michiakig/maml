@@ -102,8 +102,8 @@ fun test _ =
 
               (* ... and higher prec than -> (arrow) *)
               ,("'a list -> 'a", T.Arrow (T.Con ("list", T.Var "a"), T.Var "a"))
-              ,("'a -> 'a list", T.Arrow (T.Var "a", T.Con ("list", T.Var "a"))
-              ,("('a -> 'a) list", T.Arrow (T.Var "a", T.Con ("list", T.Var "a"))
+              ,("'a -> 'a list", T.Arrow (T.Var "a", T.Con ("list", T.Var "a")))
+              ,("('a -> 'a) list", T.Con ("list", T.Paren (T.Arrow (T.Var "a", T.Var "a"))))
 
               (* arrow associates to the right *)
               ,("'a -> 'a", T.Arrow (T.Var "a", T.Var "a"))
