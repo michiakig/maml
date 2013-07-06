@@ -59,6 +59,10 @@ fun test _ =
             ,("if true then not false else true", E.If (E.Bool true, E.App (E.Id "not", E.Bool false), E.Bool true))
             ,("if true then false else not true", E.If (E.Bool true, E.Bool false, E.App (E.Id "not", E.Bool true)))
             ,("let val f = fn x => x in f 1 end", E.Let ("f", E.Fn ("x", E.Id "x"), E.App (E.Id "f", E.Num 1)))
+
+            (* function application has higher prec than infix arith operators *)
+            ,("f x + g y",       E.Infix (AST.Expr.Add, E.App (E.Id "f", E.Id "x"), E.App (E.Id "g", E.Id "y")))
+            ,("f x + g y * h z", E.Infix (AST.Expr.Add, E.App (E.Id "f", E.Id "x"), E.Infix (AST.Expr.Mul, E.App (E.Id "g", E.Id "y"), E.App (E.Id "h", E.Id "z"))))
            ]
        ; expr "parser/case"
            [
