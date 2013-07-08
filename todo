@@ -1,3 +1,12 @@
+Lexer
+=====
+
+Reset column numbers on new lines
+
+Read & lex files, as well as strings
+
+Comments
+
 Parser
 ======
 
@@ -24,8 +33,3 @@ annotations
 patterns
 
 primitives, top-level env
-
-Lexer
-=====
-
-Comments
