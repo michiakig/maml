@@ -10,8 +10,6 @@ Comments
 Parser
 ======
 
-type constructors with multiple args: ('a, 'b) either
-
 type annotations on any expression
 
 Infix of 'a * string * 'a t * 'a t

@@ -56,10 +56,23 @@ struct
                  else ()
              fun expected s t = raise SyntaxError ("expected " ^ s ^
                                                    ", got " ^ Token.show t)
+
+             fun tyseq (acc : 'a AST.Type.t list) : 'a AST.Type.t =
+                 (log "tyseq";
+                  case peek () of
+                      SOME (Token.RParen _) => (adv ();
+                                                case peek () of
+                                                    SOME (Token.Id (pos, c)) => (adv (); AST.Type.Con (pos, c, rev acc))
+                                                  | SOME t => expected "tycon following tyseq in type expression" t
+                                                  | NONE => raise SyntaxError "unexpected EOF")
+                    | SOME (Token.Comma _) => (adv (); tyseq (infexp 0 :: acc))
+                    | SOME t => expected "comma or )" t
+                    | NONE => raise SyntaxError "unexpected EOF")
+
              (*
               * parse an atomic expression -- var or parenthesized infix
               *)
-             fun atom () : 'a AST.Type.t =
+             and atom () : 'a AST.Type.t =
                  (log "atom";
                   case peek () of
                       SOME (Token.TypeVar v) => (adv (); AST.Type.Var v)
@@ -68,7 +81,8 @@ struct
                                                    in
                                                       case peek () of
                                                           SOME (Token.RParen _) => (adv (); AST.Type.Paren (pos, t))
-                                                        | SOME t => expected "RParen" t
+                                                        | SOME (Token.Comma _) => tyseq [t]
+                                                        | SOME t => expected "comma or )" t
                                                         | NONE => raise SyntaxError "unexpected EOF"
                                                    end)
                     | SOME t             => expected "TypeVar or LParen" t

@@ -118,6 +118,12 @@ fun test _ =
               ,("'a * 'b -> 'c", T.Arrow (T.Tuple [T.Var "a", T.Var "b"], T.Var "c"))
               ,("('a * 'b) -> 'c", T.Arrow (T.Paren (T.Tuple [T.Var "a", T.Var "b"]), T.Var "c"))
               ,("'a * ('b -> 'c)", T.Tuple [T.Var "a", T.Paren (T.Arrow (T.Var "b", T.Var "c"))])
+
+              (* tyseqs *)
+              ,("('a) list", T.Con ("list", [T.Paren (T.Var "a")]))
+              ,("('a, 'b) either", T.Con ("either", [T.Var "a", T.Var "b"]))
+              ,("('a, 'b, 'c) foo", T.Con ("foo", [T.Var "a", T.Var "b", T.Var "c"]))
+              ,("('a, 'b, 'c, 'd, 'e, 'f) bar", T.Con ("bar", [T.Var "a", T.Var "b", T.Var "c", T.Var "d", T.Var "e", T.Var "f"]))
              ]
 
        ; decl "parser/val"
