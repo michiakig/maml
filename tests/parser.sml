@@ -124,6 +124,10 @@ fun test _ =
               ,("('a, 'b) either", T.Con ("either", [T.Var "a", T.Var "b"]))
               ,("('a, 'b, 'c) foo", T.Con ("foo", [T.Var "a", T.Var "b", T.Var "c"]))
               ,("('a, 'b, 'c, 'd, 'e, 'f) bar", T.Con ("bar", [T.Var "a", T.Var "b", T.Var "c", T.Var "d", T.Var "e", T.Var "f"]))
+
+             (* nullary tycons *)
+              ,("int", T.Con ("int", []))
+              ,("int list", T.Con ("list", [T.Con ("int", [])]))
              ]
 
        ; decl "parser/val"

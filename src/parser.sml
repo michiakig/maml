@@ -85,7 +85,8 @@ struct
                                                         | SOME t => expected "comma or )" t
                                                         | NONE => raise SyntaxError "unexpected EOF"
                                                    end)
-                    | SOME t             => expected "TypeVar or LParen" t
+                    | SOME (Token.Id (pos, c)) => (adv(); AST.Type.Con (pos, c, []))
+                    | SOME t             => expected "TypeVar, LParen, or Id" t
                     | NONE               => raise SyntaxError "unexpected EOF")
 
              (*
