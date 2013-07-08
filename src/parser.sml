@@ -83,7 +83,7 @@ struct
                      fun infexp' (prec : int, lhs : 'a AST.Type.t) : 'a AST.Type.t =
                          (log "infexp'";
                           case peek () of
-                              SOME (Token.Id (pos, c)) => (adv (); infexp' (prec, AST.Type.Con (pos, c, lhs)))
+                              SOME (Token.Id (pos, c)) => (adv (); infexp' (prec, AST.Type.Con (pos, c, [lhs])))
                             | SOME t =>
                               if isInfix t
                               then

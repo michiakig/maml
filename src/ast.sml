@@ -105,12 +105,12 @@ struct
    structure Type =
    struct
       datatype 'a t = Var of 'a * string
-                    | Con of 'a * string * 'a t
+                    | Con of 'a * string * 'a t list
                     | Arrow of 'a * 'a t * 'a t
                     | Tuple of 'a * 'a t list
                     | Paren of 'a * 'a t
       fun show (Var (_, v)) = "Var (" ^ v ^ ")"
-           | show (Con (_, c, t)) = "Con (" ^ c ^ "," ^ show t ^ ")"
+           | show (Con (_, c, ts)) = "Con (" ^ c ^ "," ^ Show.list show ts ^ ")"
            | show (Arrow (_, x, y)) = "Arrow (" ^ show x ^ "," ^ show y ^ ")"
            | show (Tuple (_, ts)) = "Tuple ([" ^ String.concatWith "," (map show ts) ^ "])"
            | show (Paren (_, t)) = "Paren " ^ show t
@@ -118,7 +118,7 @@ struct
       fun walk f t =
           case t of
               Var (a, x) => Var (f a, x)
-            | Con (a, c, t) => Con (f a, c, walk f t)
+            | Con (a, c, ts) => Con (f a, c, map (walk f) ts)
             | Arrow (a, t1, t2) => Arrow (f a, walk f t1, walk f t2)
             | Tuple (a, ts) => Tuple (f a, map (walk f) ts)
             | Paren (a, t) => Paren (f a, walk f t)

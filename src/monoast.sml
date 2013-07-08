@@ -56,12 +56,12 @@ struct
    structure Type =
    struct
       datatype t = Var of string
-                 | Con of string * t
+                 | Con of string * t list
                  | Arrow of t * t
                  | Tuple of t list
                  | Paren of t
       fun show (Var v) = "Var " ^ v
-        | show (Con (c, t)) = "Con (" ^ c ^ "," ^ show t ^ ")"
+        | show (Con (c, ts)) = "Con (" ^ c ^ "," ^ Show.list show ts ^ ")"
         | show (Arrow (x, y)) = "Arrow (" ^ show x ^ "," ^ show y ^ ")"
         | show (Tuple (ts)) = "Tuple ([" ^ String.concatWith "," (map show ts) ^ "])"
         | show (Paren t) = "Paren " ^ show t
@@ -72,7 +72,7 @@ struct
          fun make (e : 'a AST.Type.t) : t =
              case e of
                  T.Var (_, x)        => Var x
-               | T.Con (_, name, t)  => Con (name, make t)
+               | T.Con (_, name, ts)  => Con (name, map make ts)
                | T.Arrow (_, t1, t2) => Arrow (make t1, make t2)
                | T.Tuple (_, ts)     => Tuple (map make ts)
                | T.Paren (_, t)      => Paren (make t)

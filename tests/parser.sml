@@ -89,8 +89,8 @@ fun test _ =
        ; typ "parser/type"
              [
                ("'a", T.Var "a")
-              ,("'a list tree", T.Con ("tree", T.Con ("list", T.Var "a")))
-              ,("'a list", T.Con ("list", T.Var "a"))
+              ,("'a list tree", T.Con ("tree", [T.Con ("list", [T.Var "a"])]))
+              ,("'a list", T.Con ("list", [T.Var "a"]))
               (* ,("('a, 'b) either", ... ) *)
 
               ,("'a * 'b", T.Tuple [T.Var "a", T.Var "b"])
@@ -100,14 +100,14 @@ fun test _ =
               ,("'a * ('b * 'c)", T.Tuple [T.Var "a", T.Paren (T.Tuple [T.Var "b", T.Var "c"])])
 
               (* ctor app has higher prec than * (tuple op) *)
-              ,("'a list * 'b", T.Tuple [T.Con ("list", T.Var "a"), T.Var "b"])
-              ,("'a * 'b list", T.Tuple [T.Var "a", T.Con ("list", T.Var "b")])
-              ,("('a * 'b) list", T.Con ("list", T.Paren (T.Tuple [T.Var "a", T.Var "b"])))
+              ,("'a list * 'b", T.Tuple [T.Con ("list", [T.Var "a"]), T.Var "b"])
+              ,("'a * 'b list", T.Tuple [T.Var "a", T.Con ("list", [T.Var "b"])])
+              ,("('a * 'b) list", T.Con ("list", [T.Paren (T.Tuple [T.Var "a", T.Var "b"])]))
 
               (* ... and higher prec than -> (arrow) *)
-              ,("'a list -> 'a", T.Arrow (T.Con ("list", T.Var "a"), T.Var "a"))
-              ,("'a -> 'a list", T.Arrow (T.Var "a", T.Con ("list", T.Var "a")))
-              ,("('a -> 'a) list", T.Con ("list", T.Paren (T.Arrow (T.Var "a", T.Var "a"))))
+              ,("'a list -> 'a", T.Arrow (T.Con ("list", [T.Var "a"]), T.Var "a"))
+              ,("'a -> 'a list", T.Arrow (T.Var "a", T.Con ("list", [T.Var "a"])))
+              ,("('a -> 'a) list", T.Con ("list", [T.Paren (T.Arrow (T.Var "a", T.Var "a"))]))
 
               (* arrow associates to the right *)
               ,("'a -> 'a", T.Arrow (T.Var "a", T.Var "a"))
@@ -168,13 +168,13 @@ fun test _ =
               D.Data ([], "foo", [("Bar", NONE)]))
 
             ,("datatype 'a list1 = Cons of 'a * 'a list1 | Nil",
-              D.Data (["a"], "list1", [("Cons", SOME (T.Tuple [T.Var "a", T.Con ("list1", T.Var "a")])), ("Nil", NONE)]))
+              D.Data (["a"], "list1", [("Cons", SOME (T.Tuple [T.Var "a", T.Con ("list1", [T.Var "a"])])), ("Nil", NONE)]))
 
             ,("datatype 'a list2 = Nil | Cons of 'a * 'a list2",
-              D.Data (["a"], "list2", [("Nil", NONE), ("Cons", SOME (T.Tuple [T.Var "a", T.Con ("list2", T.Var "a")]))]))
+              D.Data (["a"], "list2", [("Nil", NONE), ("Cons", SOME (T.Tuple [T.Var "a", T.Con ("list2", [T.Var "a"])]))]))
 
             ,("datatype 'a tree = Leaf of 'a | Branch of 'a tree * 'a tree",
-              D.Data (["a"], "tree", [("Leaf", SOME (T.Var "a")), ("Branch", SOME (T.Tuple [T.Con ("tree", T.Var "a"), T.Con ("tree", T.Var "a")]))]))
+              D.Data (["a"], "tree", [("Leaf", SOME (T.Var "a")), ("Branch", SOME (T.Tuple [T.Con ("tree", [T.Var "a"]), T.Con ("tree", [T.Var "a"])]))]))
 
             ,("datatype 'a option = None | Some of 'a",
               D.Data (["a"], "option", [("None", NONE), ("Some", SOME (T.Var "a"))]))
