@@ -3,14 +3,11 @@ struct
 
 datatype 'a t = Num of 'a * int
               | Id of 'a * string
+              | Infix of 'a * string
               | Ctor of 'a * string
               | Bool of 'a * bool
               | LParen of 'a
               | RParen of 'a
-              | Add of 'a
-              | Mul of 'a
-              | Div of 'a
-              | Sub of 'a
               | If of 'a
               | Then of 'a
               | Else of 'a
@@ -34,13 +31,10 @@ datatype 'a t = Num of 'a * int
 fun show (Num (_, n)) = "Num " ^ Int.toString n
   | show (Bool (_, b)) = "Bool " ^ Bool.toString b
   | show (Id (_, s)) = "Id " ^ s
+  | show (Infix (_, s)) = "Infix " ^ s
   | show (Ctor (_, s)) = "Ctor " ^ s
   | show (LParen _) = "LParen"
   | show (RParen _) = "RParen"
-  | show (Add _) = "Add"
-  | show (Mul _) = "Mul"
-  | show (Div _) = "Div"
-  | show (Sub _) = "Sub"
   | show (If _) = "If"
   | show (Else _) = "Else"
   | show (Then _) = "Then"
@@ -64,13 +58,10 @@ fun show (Num (_, n)) = "Num " ^ Int.toString n
 fun getInfo (Num (info, _))     = info
   | getInfo (Bool (info, _))    = info
   | getInfo (Id (info, _))      = info
+  | getInfo (Infix (info, _))   = info
   | getInfo (Ctor (info, _))    = info
   | getInfo (LParen info)       = info
   | getInfo (RParen info)       = info
-  | getInfo (Add info)          = info
-  | getInfo (Mul info)          = info
-  | getInfo (Div info)          = info
-  | getInfo (Sub info)          = info
   | getInfo (If info)           = info
   | getInfo (Else info)         = info
   | getInfo (Then info)         = info

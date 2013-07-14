@@ -24,24 +24,34 @@ fun getDigit chars =
        (Int.fromString (String.implode numStr), length numStr, rest)
     end
 
-fun getWord chars =
+fun notDelim #"(" = false
+  | notDelim #")" = false
+  | notDelim #"," = false
+  | notDelim #"|" = false
+  | notDelim ch = not (Char.isSpace ch)
+
+fun isSpecial x = notDelim x andalso Char.isPunct x
+fun isValid x = Char.isAlphaNum x orelse x = #"_"
+
+fun getWord (chars as x :: xs) =
     let
-       fun notDelim #"+" = false
-         | notDelim #"-" = false
-         | notDelim #"*" = false
-         | notDelim #"/" = false
-         | notDelim #"=" = false
-         | notDelim #"(" = false
-         | notDelim #")" = false
-         | notDelim #"," = false
-         | notDelim #"|" = false
-         | notDelim ch = not (Char.isSpace ch)
-       val (word, rest) = takeWhile notDelim chars
+       val (id, rest) =
+           if isSpecial x then
+              takeWhile isSpecial chars
+           else takeWhile isValid chars
     in
-       (String.implode word, rest)
+       (String.implode id, rest)
     end
+  | getWord [] = ("", [])
 
 exception LexicalError of string
+
+(* TODO: needs to be a Set build by previous infix declarations *)
+fun isInfix "+" = true
+  | isInfix "-" = true
+  | isInfix "*" = true
+  | isInfix "/" = true
+  | isInfix _ = false
 
 (*
  * list-based lexical analyzer, probably pretty slow
@@ -56,14 +66,7 @@ fun lexStr (s : string) : AST.pos Token.t list =
 
        fun lexStr' (acc, #"(" :: rest) = lexStr' (Token.LParen (incrCol 1) :: acc, rest)
          | lexStr' (acc, #")" :: rest) = lexStr' (Token.RParen (incrCol 1):: acc, rest)
-         | lexStr' (acc, #"+" :: rest) = lexStr' (Token.Add (incrCol 1) :: acc, rest)
-         | lexStr' (acc, #"-" :: #">" :: rest) = lexStr' (Token.TArrow (incrCol 2) :: acc, rest)
-         | lexStr' (acc, #"-" :: rest) = lexStr' (Token.Sub (incrCol 1) :: acc, rest)
-         | lexStr' (acc, #"*" :: rest) = lexStr' (Token.Mul (incrCol 1) :: acc, rest)
-         | lexStr' (acc, #"/" :: rest) = lexStr' (Token.Div (incrCol 1) :: acc, rest)
          | lexStr' (acc, #"|" :: rest) = lexStr' (Token.Bar (incrCol 1) :: acc, rest)
-         | lexStr' (acc, #"=" :: #">" :: rest) = lexStr' (Token.DArrow (incrCol 2) :: acc, rest)
-         | lexStr' (acc, #"=" :: rest) = lexStr' (Token.Eqls (incrCol 1) :: acc, rest)
          | lexStr' (acc, #"," :: rest) = lexStr' (Token.Comma (incrCol 1) :: acc, rest)
          | lexStr' (acc, #"\n" :: rest) = (incrLine 1; lexStr' (acc, rest))
          | lexStr' (acc, all as c :: cs) =
@@ -74,6 +77,10 @@ fun lexStr (s : string) : AST.pos Token.t list =
                        raise LexicalError ("error lexing num: " ^ String.implode all)
            else if Char.isSpace c
                    then (incrCol 1; lexStr' (acc, cs))
+           else if c = #"'" then
+              (case getWord cs of
+                   ("", rest) => raise LexicalError "expected type var"
+                 | (v, rest) => lexStr' (Token.TypeVar (incrCol (String.size v + 1), v) :: acc, rest))
                 else (case getWord all of
                          ("if", rest) => lexStr' (Token.If (incrCol 2) :: acc, rest)
                        | ("then", rest) => lexStr' (Token.Then (incrCol 4) :: acc, rest)
@@ -89,13 +96,19 @@ fun lexStr (s : string) : AST.pos Token.t list =
                        | ("datatype", rest) => lexStr' (Token.Datatype (incrCol 8) :: acc, rest)
                        | ("of", rest) => lexStr' (Token.Of (incrCol 2) :: acc, rest)
                        | ("val", rest) => lexStr' (Token.Val (incrCol 3) :: acc, rest)
+
+                       | ("=", rest) => lexStr' (Token.Eqls (incrCol 1) :: acc, rest)
+                       | ("=>", rest) => lexStr' (Token.DArrow (incrCol 2) :: acc, rest)
+                       | ("->", rest) => lexStr' (Token.TArrow (incrCol 2) :: acc, rest)
+
                        | ("", _) =>
                          raise LexicalError ("error lexing: " ^ String.implode all)
+
                        | (id, rest) =>
                          if Char.isUpper (String.sub (id, 0))
                             then lexStr' ((Token.Ctor (incrCol (String.size id), id)) :: acc, rest)
-                         else if String.sub (id, 0) = #"'"
-                            then lexStr' ((Token.TypeVar (incrCol (String.size id), String.substring (id, 1, size id - 1))) :: acc, rest)
+                         else if isInfix id
+                            then lexStr' ((Token.Infix (incrCol (String.size id), id)) :: acc, rest)
                          else lexStr' ((Token.Id (incrCol (String.size id), id)) :: acc, rest))
          | lexStr' (acc, []) = rev acc
     in

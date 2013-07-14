@@ -23,11 +23,11 @@ struct
       datatype assoc = Left | Right
 
       exception NoPrecedence of string
-      fun getPrec (Token.Mul _)    = (60, fn (pos, AST.Type.Tuple (_, xs), y) => AST.Type.Tuple (pos, xs @ [y]) | (pos, x, y) => AST.Type.Tuple (pos, [x, y]), Left)
+      fun getPrec (Token.Infix (_, "*")) = (60, fn (pos, AST.Type.Tuple (_, xs), y) => AST.Type.Tuple (pos, xs @ [y]) | (pos, x, y) => AST.Type.Tuple (pos, [x, y]), Left)
         | getPrec (Token.TArrow _) = (50, AST.Type.Arrow, Right)
         | getPrec t                = raise NoPrecedence (Token.show t)
 
-      fun isInfix (Token.Mul _)    = true
+      fun isInfix (Token.Infix (_, "*")) = true
         | isInfix (Token.TArrow _) = true
         | isInfix _                = false
 
@@ -130,16 +130,16 @@ fun FIRSTatexp (Token.Id (pos, _))   = true
   | FIRSTatexp (Token.LParen pos)    = true
   | FIRSTatexp _                 = false
 
-fun isBinop (Token.Add _) = true
-  | isBinop (Token.Sub _) = true
-  | isBinop (Token.Mul _) = true
-  | isBinop (Token.Div _) = true
+fun isBinop (Token.Infix (_, "+")) = true
+  | isBinop (Token.Infix (_, "-")) = true
+  | isBinop (Token.Infix (_, "*")) = true
+  | isBinop (Token.Infix (_, "/")) = true
   | isBinop _ = false
 
-fun getBinop (Token.Add _) = AST.Expr.Add
-  | getBinop (Token.Sub _) = AST.Expr.Sub
-  | getBinop (Token.Mul _) = AST.Expr.Mul
-  | getBinop (Token.Div _) = AST.Expr.Div
+fun getBinop (Token.Infix (_, "+")) = AST.Expr.Add
+  | getBinop (Token.Infix (_, "-")) = AST.Expr.Sub
+  | getBinop (Token.Infix (_, "*")) = AST.Expr.Mul
+  | getBinop (Token.Infix (_, "/")) = AST.Expr.Div
   | getBinop _ = raise Match
 
 structure Expr = AST.Expr
@@ -161,10 +161,10 @@ fun parseExpr' (toks : 'a Token.t list) : 'a AST.Expr.t * 'a Token.t list =
        fun getPrec () : int =
            (if has ()
                then (case peek () of
-                         Token.Add _ => 1
-                       | Token.Sub _ => 1
-                       | Token.Mul _ => 2
-                       | Token.Div _ => 2
+                         Token.Infix (_, "+") => 1
+                       | Token.Infix (_, "-") => 1
+                       | Token.Infix (_, "*") => 2
+                       | Token.Infix (_, "/") => 2
                        | _ => 0)
             else 0)
 
