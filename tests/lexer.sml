@@ -14,15 +14,15 @@ fun test _ = (
           ,("fn x => x",                [L.Fn {line=1,col=1}, L.Id ({line=1,col=4},"x"), L.DArrow {line=1,col=6}, L.Id ({line=1,col=9},"x")])
           ,("if 1 then 2 else 3",       [L.If {line=1,col=1}, L.Num ({line=1,col=4}, 1), L.Then {line=1,col=6}, L.Num ({line=1,col=11}, 2), L.Else {line=1,col=13}, L.Num ({line=1,col=18},3)])
           ,("if foo then bar else baz", [L.If {line=1,col=1}, L.Id ({line=1,col=4},"foo"), L.Then {line=1,col=8}, L.Id ({line=1,col=13},"bar"), L.Else {line=1,col=17}, L.Id ({line=1,col=22},"baz")])
-          ,("let x = 0 in x + x",       [L.Let {line=1,col=1}, L.Id ({line=1,col=5},"x"), L.Eqls {line=1,col=7}, L.Num ({line=1,col=9},0), L.In {line=1,col=11}, L.Id ({line=1,col=14},"x"), L.Add {line=1,col=16}, L.Id ({line=1,col=18},"x")])
-          ,("let x=0 in x + x",         [L.Let {line=1,col=1}, L.Id ({line=1,col=5},"x"), L.Eqls {line=1,col=6}, L.Num ({line=1,col=7},0), L.In {line=1,col=9}, L.Id ({line=1,col=12},"x"), L.Add {line=1,col=14}, L.Id ({line=1,col=16},"x")])
+          ,("let x = 0 in x + x",       [L.Let {line=1,col=1}, L.Id ({line=1,col=5},"x"), L.Eqls {line=1,col=7}, L.Num ({line=1,col=9},0), L.In {line=1,col=11}, L.Id ({line=1,col=14},"x"), L.Infix ({line=1,col=16}, "+"), L.Id ({line=1,col=18},"x")])
+          ,("let x=0 in x + x",         [L.Let {line=1,col=1}, L.Id ({line=1,col=5},"x"), L.Eqls {line=1,col=6}, L.Num ({line=1,col=7},0), L.In {line=1,col=9}, L.Id ({line=1,col=12},"x"), L.Infix ({line=1,col=14}, "+"), L.Id ({line=1,col=16},"x")])
 
-          ,("match x with (Nil) => 0 | (Cons y ys) => 1",
-            [L.Match {line=1,col=1}, L.Id ({line=1,col=7},"x"), L.With {line=1,col=9}, L.LParen {line=1,col=14}, L.Ctor ({line=1,col=15},"Nil"), L.RParen {line=1,col=18}, L.DArrow {line=1,col=20}, L.Num ({line=1,col=23},0), L.Bar {line=1,col=25}, L.LParen {line=1,col=27}, L.Ctor ({line=1,col=28},"Cons"), L.Id ({line=1,col=33},"y"), L.Id ({line=1,col=35},"ys"), L.RParen {line=1,col=37}, L.DArrow {line=1,col=39}, L.Num ({line=1,col=42},1)])
+          ,("case x of (Nil) => 0 | (Cons y ys) => 1",
+            [L.Match {line=1,col=1}, L.Id ({line=1,col=6},"x"), L.Of {line=1,col=8}, L.LParen {line=1,col=11}, L.Ctor ({line=1,col=12},"Nil"), L.RParen {line=1,col=15}, L.DArrow {line=1,col=17}, L.Num ({line=1,col=20},0), L.Bar {line=1,col=22}, L.LParen {line=1,col=24}, L.Ctor ({line=1,col=25},"Cons"), L.Id ({line=1,col=30},"y"), L.Id ({line=1,col=32},"ys"), L.RParen {line=1,col=34}, L.DArrow {line=1,col=36}, L.Num ({line=1,col=39},1)])
 
-          ,("match x with 1 => 1 | 2 => 2", [L.Match {line=1,col=1}, L.Id ({line=1,col=7},"x"), L.With {line=1,col=9}, L.Num ({line=1,col=14},1), L.DArrow {line=1,col=16}, L.Num ({line=1,col=19},1), L.Bar {line=1,col=21}, L.Num ({line=1,col=23},2), L.DArrow {line=1,col=25}, L.Num ({line=1,col=28},2)])
+          ,("case x of 1 => 1 | 2 => 2", [L.Match {line=1,col=1}, L.Id ({line=1,col=6},"x"), L.Of {line=1,col=8}, L.Num ({line=1,col=11},1), L.DArrow {line=1,col=13}, L.Num ({line=1,col=16},1), L.Bar {line=1,col=18}, L.Num ({line=1,col=20},2), L.DArrow {line=1,col=22}, L.Num ({line=1,col=25},2)])
 
-          ,("datatype 'a tree = Leaf of 'a | Branch of 'a tree * 'a tree", [L.Datatype {line=1,col=1}, L.TypeVar ({line=1,col=10}, "a"), L. Id ({line=1,col=13}, "tree"), L.Eqls {line=1,col=18}, L.Ctor ({line=1,col=20}, "Leaf"), L.Of {line=1,col=25}, L.TypeVar ({line=1,col=28}, "a"), L.Bar {line=1,col=31}, L.Ctor ({line=1,col=33}, "Branch"), L.Of {line=1,col=40}, L.TypeVar ({line=1,col=43}, "a"), L.Id ({line=1,col=46}, "tree"), L.Mul {line=1,col=51}, L.TypeVar ({line=1,col=53}, "a"), L.Id ({line=1,col=56}, "tree")])
+          ,("datatype 'a tree = Leaf of 'a | Branch of 'a tree * 'a tree", [L.Datatype {line=1,col=1}, L.TypeVar ({line=1,col=10}, "a"), L. Id ({line=1,col=13}, "tree"), L.Eqls {line=1,col=18}, L.Ctor ({line=1,col=20}, "Leaf"), L.Of {line=1,col=25}, L.TypeVar ({line=1,col=28}, "a"), L.Bar {line=1,col=31}, L.Ctor ({line=1,col=33}, "Branch"), L.Of {line=1,col=40}, L.TypeVar ({line=1,col=43}, "a"), L.Id ({line=1,col=46}, "tree"), L.Infix ({line=1,col=51}, "*"), L.TypeVar ({line=1,col=53}, "a"), L.Id ({line=1,col=56}, "tree")])
          ])
 
 end
