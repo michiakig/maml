@@ -159,6 +159,20 @@ val rec genCon : (T.t Env.map * typed E.t * Constraint.Set.set) -> Constraint.Se
            in
               foldl gen constrs clauses
            end
+
+         (* infix expr, treat as an application the operator to a pair *)
+         | E.Infix ({typ, ...}, oper, e1, e2) =>
+           let
+              val tvarg = T.Tuple [gettyp e1, gettyp e2]
+              val constrs' = genCon (env, e1, constrs)
+              val constrs'' = genCon (env, e2, constrs')
+           in
+              case Env.find (env, oper) of
+                  NONE => raise TypeError
+                | SOME tvop =>
+                  Constraint.Set.add (constrs'', {lhs = tvop, rhs = T.Arrow (tvarg, typ)})
+           end
+
     end
 
 fun prettyPrintConstraint ({lhs, rhs} : Constraint.t, env, ast) : string =
@@ -329,8 +343,18 @@ fun applySubToAST (e : typed E.t, sub : T.t StringMap.map) =
          | E.Case ({typ = T.Var tv, pos}, e1, es) =>
            E.Case ({typ = getType (tv, sub), pos = pos}, applySubToAST (e1, sub), map (fn (p, e) => (p, applySubToAST (e, sub))) es)
          | E.Case (typed, e1, es) => E.Case (typed, applySubToAST (e1, sub), map (fn (p, e) => (p, applySubToAST (e, sub))) es)
+
+         | E.Infix ({typ = T.Var tv, pos}, oper, e1, e2) =>
+           E.Infix ({typ = getType (tv, sub), pos = pos}, oper, applySubToAST (e1, sub), applySubToAST (e2, sub))
+         | E.Infix (typed, oper, e1, e2) => E.Infix (typed, oper, applySubToAST (e1, sub), applySubToAST (e2, sub))
+
     end
 
+local
+   val numOp = T.Arrow (T.Tuple [T.Num, T.Num], T.Num)
+in
+   val initEnv = foldl Env.insert' Env.empty [("+", numOp), ("-", numOp), ("*", numOp), ("/", numOp)]
+end
 fun inferExpr (env : T.t Env.map, e : AST.pos E.t) : typed E.t =
     (reset ();
      let
@@ -375,7 +399,7 @@ fun inferPgm (p : (AST.pos, AST.pos) AST.Pgm.t) : (typed, AST.pos) AST.Pgm.t =
            in
               (d' :: ds, env')
            end
-       val (ds, env) = foldl infer ([], Env.empty) p
+       val (ds, env) = foldl infer ([], initEnv) p
     in
        List.rev ds
     end

@@ -24,7 +24,7 @@ datatype t = Num
            | List of t
 
 fun fromAST (AST.Type.Var (_, x))        = Var x
-  | fromAST (AST.Type.Con (_, c, t))     = Con (c, [fromAST t])
+  | fromAST (AST.Type.Con (_, c, t))     = Con (c, map fromAST t)
   | fromAST (AST.Type.Arrow (_, t1, t2)) = Arrow (fromAST t1, fromAST t2)
   | fromAST (AST.Type.Tuple (_, ts))     = Tuple (map fromAST ts)
   | fromAST (AST.Type.Paren (_, t))      = fromAST t
