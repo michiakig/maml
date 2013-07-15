@@ -112,9 +112,9 @@ fun normalize t =
            let
               val i = !idx
               val var =
-                  if i >= 52
+                  if i >= 26
                      then Char.toString
-                             (String.sub (letters, i mod 52)) ^ Int.toString i
+                             (String.sub (letters, i mod 26)) ^ Int.toString i
                   else Char.toString (String.sub (letters, i))
            in
               var before (idx := i + 1)
