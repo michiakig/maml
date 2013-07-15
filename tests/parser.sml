@@ -21,20 +21,20 @@ fun test _ =
            [
              ("0",               E.Num 0)
             ,("foo",             E.Id "foo")
-            ,("1 + 2",           E.Infix (AST.Expr.Add, E.Num 1, E.Num 2))
-            ,("1 * 2 + 3",       E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Mul, E.Num 1, E.Num 2), E.Num 3))
-            ,("1 - 2 / 3",       E.Infix (AST.Expr.Sub, E.Num 1, E.Infix (AST.Expr.Div, E.Num 2, E.Num 3)))
-            ,("(1 - 2) * 3",     E.Infix (AST.Expr.Mul, E.Infix (AST.Expr.Sub, E.Num 1, E.Num 2), E.Num 3))
-            ,("(1 - 2) * (3)",   E.Infix (AST.Expr.Mul, E.Infix (AST.Expr.Sub, E.Num 1, E.Num 2), E.Num 3))
-            ,("(bar - 2) / foo", E.Infix (AST.Expr.Div, E.Infix (AST.Expr.Sub, E.Id "bar", E.Num 2), E.Id "foo"))
-            ,("1 - 2 + 3 - 4",   E.Infix (AST.Expr.Sub, E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Sub, E.Num 1, E.Num 2), E.Num 3), E.Num 4))
+            ,("1 + 2",           E.Infix ("+", E.Num 1, E.Num 2))
+            ,("1 * 2 + 3",       E.Infix ("+", E.Infix ("*", E.Num 1, E.Num 2), E.Num 3))
+            ,("1 - 2 / 3",       E.Infix ("-", E.Num 1, E.Infix ("/", E.Num 2, E.Num 3)))
+            ,("(1 - 2) * 3",     E.Infix ("*", E.Infix ("-", E.Num 1, E.Num 2), E.Num 3))
+            ,("(1 - 2) * (3)",   E.Infix ("*", E.Infix ("-", E.Num 1, E.Num 2), E.Num 3))
+            ,("(bar - 2) / foo", E.Infix ("/", E.Infix ("-", E.Id "bar", E.Num 2), E.Id "foo"))
+            ,("1 - 2 + 3 - 4",   E.Infix ("-", E.Infix ("+", E.Infix ("-", E.Num 1, E.Num 2), E.Num 3), E.Num 4))
            ]
        ; expr "parser/fns"
            [
              ("fn x=>x",           E.Fn ("x", E.Id "x"))
             ,("fn x => fn y => y", E.Fn ("x", E.Fn ("y", E.Id "y")))
-            ,("fn x => x + x",     E.Fn ("x", E.Infix (AST.Expr.Add, E.Id "x", E.Id "x")))
-            ,("fn x=>x+x",         E.Fn ("x", E.Infix (AST.Expr.Add, E.Id "x", E.Id "x")))
+            ,("fn x => x + x",     E.Fn ("x", E.Infix ("+", E.Id "x", E.Id "x")))
+            ,("fn x=>x+x",         E.Fn ("x", E.Infix ("+", E.Id "x", E.Id "x")))
            ]
        ; expr "parser/parens"
            [
@@ -61,8 +61,8 @@ fun test _ =
             ,("let val f = fn x => x in f 1 end", E.Let ("f", E.Fn ("x", E.Id "x"), E.App (E.Id "f", E.Num 1)))
 
             (* function application has higher prec than infix arith operators *)
-            ,("f x + g y",       E.Infix (AST.Expr.Add, E.App (E.Id "f", E.Id "x"), E.App (E.Id "g", E.Id "y")))
-            ,("f x + g y * h z", E.Infix (AST.Expr.Add, E.App (E.Id "f", E.Id "x"), E.Infix (AST.Expr.Mul, E.App (E.Id "g", E.Id "y"), E.App (E.Id "h", E.Id "z"))))
+            ,("f x + g y",       E.Infix ("+", E.App (E.Id "f", E.Id "x"), E.App (E.Id "g", E.Id "y")))
+            ,("f x + g y * h z", E.Infix ("+", E.App (E.Id "f", E.Id "x"), E.Infix ("*", E.App (E.Id "g", E.Id "y"), E.App (E.Id "h", E.Id "z"))))
            ]
        ; expr "parser/case"
            [
@@ -133,11 +133,11 @@ fun test _ =
        ; decl "parser/val"
            [
              ("val x = 1",            D.Val ("x", E.Num 1))
-            ,("val xx = 1 + 2 + 3",   D.Val ("xx", E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Add, E.Num 1, E.Num 2), E.Num 3)))
-            ,("val y = 1 + 2 * 3",    D.Val ("y", E.Infix (AST.Expr.Add, E.Num 1, E.Infix (AST.Expr.Mul, E.Num 2, E.Num 3))))
-            ,("val yy = 1 * 2 + 3",   D.Val ("yy", E.Infix (AST.Expr.Add, E.Infix (AST.Expr.Mul, E.Num 1, E.Num 2), E.Num 3)))
-            ,("val z = (1 + 2) * 3",  D.Val ("z", E.Infix (AST.Expr.Mul, E.Infix (AST.Expr.Add, E.Num 1, E.Num 2), E.Num 3)))
-            ,("val zz = 1 * (2 + 3)", D.Val ("zz", E.Infix (AST.Expr.Mul, E.Num 1, E.Infix (AST.Expr.Add, E.Num 2, E.Num 3))))
+            ,("val xx = 1 + 2 + 3",   D.Val ("xx", E.Infix ("+", E.Infix ("+", E.Num 1, E.Num 2), E.Num 3)))
+            ,("val y = 1 + 2 * 3",    D.Val ("y", E.Infix ("+", E.Num 1, E.Infix ("*", E.Num 2, E.Num 3))))
+            ,("val yy = 1 * 2 + 3",   D.Val ("yy", E.Infix ("+", E.Infix ("*", E.Num 1, E.Num 2), E.Num 3)))
+            ,("val z = (1 + 2) * 3",  D.Val ("z", E.Infix ("*", E.Infix ("+", E.Num 1, E.Num 2), E.Num 3)))
+            ,("val zz = 1 * (2 + 3)", D.Val ("zz", E.Infix ("*", E.Num 1, E.Infix ("+", E.Num 2, E.Num 3))))
 
             ,("val f = fn x => x",                          D.Val ("f", E.Fn ("x", E.Id "x")))
             ,("val ff = fn x => (x)",                       D.Val ("ff", E.Fn ("x", E.Id "x")))

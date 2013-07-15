@@ -13,7 +13,7 @@ struct
                  | Fn of string * t
                  | Let of string * t * t
                  | Case of t * (AST.Pattern.Complex.t * t) list
-                 | Infix of AST.Expr.binop * t * t
+                 | Infix of string * t * t
                  | Tuple of t list
 
       fun show e =
@@ -32,7 +32,7 @@ struct
                | Case (e, clauses)    => "Case (" ^ show e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
                | Tuple es    => "Tuple [" ^ String.concatWith "," (map show es) ^ "]"
 
-               | Infix (binop, e1, e2) => "Infix (" ^ AST.Expr.showBinop binop ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
+               | Infix (binop, e1, e2) => "Infix (" ^ binop ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
           end
 
       local

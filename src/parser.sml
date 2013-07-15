@@ -136,10 +136,7 @@ fun isBinop (Token.Infix (_, "+")) = true
   | isBinop (Token.Infix (_, "/")) = true
   | isBinop _ = false
 
-fun getBinop (Token.Infix (_, "+")) = AST.Expr.Add
-  | getBinop (Token.Infix (_, "-")) = AST.Expr.Sub
-  | getBinop (Token.Infix (_, "*")) = AST.Expr.Mul
-  | getBinop (Token.Infix (_, "/")) = AST.Expr.Div
+fun getBinop (Token.Infix (_, oper)) = oper
   | getBinop _ = raise Match
 
 structure Expr = AST.Expr

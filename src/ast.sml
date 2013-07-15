@@ -33,13 +33,6 @@ struct
    structure Expr =
    struct
 
-   datatype binop = Add | Sub | Mul | Div
-
-   fun showBinop Add = "Add"
-     | showBinop Sub = "Sub"
-     | showBinop Mul = "Mul"
-     | showBinop Div = "Div"
-
    (* actual AST type, with polymorphic info *)
    datatype 'a t = Num of 'a * int
                  | Bool of 'a * bool
@@ -51,7 +44,7 @@ struct
                  | Fn of 'a * 'a * string * 'a t
                  | Let of 'a * string * 'a t * 'a t
                  | Case of 'a * 'a t * (Pattern.Complex.t * 'a t) list
-                 | Infix of 'a * binop * 'a t * 'a t
+                 | Infix of 'a * string * 'a t * 'a t
                  | Tuple of 'a * 'a t list
 
    fun getInfo (Num (info, _))       = info
@@ -80,7 +73,7 @@ struct
             | Fn (_, _, x, e)          => "Fn (" ^ x ^ "," ^ show e ^ ")"
             | Let (_, x, e1, e2)       => "Let (" ^ x ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
             | Case (_, e, clauses)    => "Case (" ^ show e ^ "," ^ String.concatWith "|" (map showClause clauses) ^ ")"
-            | Infix (_, binop, e1, e2) => "Infix (" ^ showBinop binop ^ "," ^ show e1 ^ "," ^ show e1 ^ ")"
+            | Infix (_, binop, e1, e2) => "Infix (" ^ binop ^ "," ^ show e1 ^ "," ^ show e1 ^ ")"
             | Tuple (_, es) => "Tuple [" ^ String.concatWith "," (map show es) ^ "]"
        end
 
