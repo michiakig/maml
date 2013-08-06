@@ -14,17 +14,17 @@ val reflect =
 
 ## syntax
 
-Concrete syntax is mostly a subset of Standard ML, but diverges in a few to cut corners: no top-level function declarations, just value bindings to fns, value constructors must be capitalized (if it's good enough for Haskell...).
+Concrete syntax is mostly a subset of Standard ML, but diverges in a few places to cut corners: no top-level function declarations, just value bindings to fns, value constructors must be capitalized (if it's good enough for Haskell...).
 
 ## building and testing
 
-Requires SML/NJ and [QCheck/SML](http://contrapunctus.net/league/haques/qcheck/qcheck.html) for tests. Install QCheck by following the instructions there (likely need to edit ~/.smlnj-pathconfig) and then:
+Requires [SML/NJ](http://smlnj.org/) and [QCheck/SML](http://contrapunctus.net/league/haques/qcheck/qcheck.html) for tests. Install QCheck by following the instructions there (likely need to edit ~/.smlnj-pathconfig) and then:
 
 `make -f Makefile_parser test`
 
-Would like to get it building under MLton, probably works but need to test and write build scripts (.mlb files).
+Would like to get it building under MLton, which probably works as I tend to carefully avoid ML language extensions, but still need to test and (crucially) write MLton build scripts (.mlb files).
 
-## todo
+## todos
 
 ### lexer
 
