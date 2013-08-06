@@ -9,7 +9,7 @@ val reflect =
  fn t =>
     case t of
         Leaf x => t
-      | Branch (t1, t2) => Branch (reflect t1, reflect t2)
+      | Branch (t1, t2) => Branch (reflect t2, reflect t1)
 ```
 
 ## building and testing
