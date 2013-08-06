@@ -1,6 +1,6 @@
 # MaML (isn't quite yet) An ML (compiler)
 
-This is the front-end for an ML compiler: a lexer, parser and type checker. It's currently capable of parsing and type checking (via Hindley-Milner type inference) programs that are recognizably ML, e.g.
+This is the front-end for an ML compiler, written in Standard ML. It consists of a lexer, a parser and a type checker (with Hindley-Milner style type inference). It's currently capable of parsing and type checking programs that are recognizably ML, e.g.
 
 ```
 datatype 'a tree = Leaf of 'a
@@ -12,13 +12,17 @@ val reflect =
       | Branch (t1, t2) => Branch (reflect t2, reflect t1)
 ```
 
+## syntax
+
+Concrete syntax is mostly a subset of Standard ML, but diverges in a few to cut corners: no top-level function declarations, just value bindings to fns, value constructors must be capitalized (if it's good enough for Haskell...).
+
 ## building and testing
 
-Requires SML/NJ and [QCheck/SML](http://contrapunctus.net/league/haques/qcheck/qcheck.html) for tests. Install QCheck by following the instructions there (likely need to edit .smlnj-pathconfig) and then:
+Requires SML/NJ and [QCheck/SML](http://contrapunctus.net/league/haques/qcheck/qcheck.html) for tests. Install QCheck by following the instructions there (likely need to edit ~/.smlnj-pathconfig) and then:
 
 `make -f Makefile_parser test`
 
-Would like to get it building under MLton, probably works but need to test and write build scripts (.mlb files). For now, test under SML/NJ:
+Would like to get it building under MLton, probably works but need to test and write build scripts (.mlb files).
 
 ## todo
 
