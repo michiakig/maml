@@ -1,31 +1,30 @@
 Library
     structure Type
-    structure TypeInf
+    structure Typecheck
 
     structure Token
     structure Lexer
     structure Parser
     structure AST
-    structure Desugar
-    structure Pattern
+    structure MonoAST
+    structure Constraint
 
     structure Main
 is
-    src/typeinf.sml
-    src/stringmap.sml
     src/type.sml
+    src/typecheck.sml
+    src/constraint.sml
+    src/stringmap.sml
 
     src/token.sml
     src/lexer.sml
     src/parser.sml
     src/ast.sml
-    src/desugar.sml
-    src/pattern.sml
+    src/monoast.sml
 
-    tests/typeinf.sml
     tests/lexer.sml
     tests/parser.sml
-    tests/desugar.sml
+    tests/typeinf.sml
     tests/main.sml
 
     $/basis.cm

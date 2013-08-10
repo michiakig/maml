@@ -7,7 +7,7 @@ structure T = Type
 
 fun test _ = (
    check (List.getItem, SOME (Show.pair (T.show, fn x => x)))
-         ("typeof", pred (fn (ty, s) => (TypeInf.typeof (Parser.parseExpr (Lexer.lexStr s))) = ty))
+         ("typeof", pred (fn (ty, s) => Type.normalize (Typecheck.gettyp (Typecheck.inferExpr (Typecheck.initEnv, Parser.parseExpr (Lexer.lexStr s)))) = ty))
          [
            (T.Num, "0")
           (* ,(T.Num, "0 + 1") *)
@@ -59,20 +59,6 @@ fun test _ = (
           (*                        S.If (S.App (S.Id "f", S.Hd (S.Id "l")), *)
           (*                              S.apply (S.Id "filter", [S.Id "f", S.Tl (S.Id "l")]), *)
           (*                              S.Cons (S.Hd (S.Id "l"), S.apply (S.Id "filter", [S.Id "f", S.Tl (S.Id "l")]))))))) *)
-         ]
-
- ; check (List.getItem, NONE)
-         ("occursCheck1", pred TypeInf.occurs)
-         [
-           {lhs = T.Var "x", rhs = T.List (T.Var "x")}
-         , {lhs = T.List (T.Var "x"), rhs = T.Var "x"}
-         , {lhs = T.Var "x", rhs = T.Arrow (T.Num, T.Var "x")}
-         ]
-
- ; check (List.getItem, NONE)
-         ("occursCheck2", pred (not o TypeInf.occurs))
-         [
-           {lhs = T.Var "x", rhs = T.Var "x"}
          ])
 
 end
