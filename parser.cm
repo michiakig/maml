@@ -6,6 +6,8 @@ Library
     structure MonoAST
     structure Main
 is
+    src/show.sml
+
     src/token.sml
     src/lexer.sml
     src/parser.sml
@@ -18,4 +20,3 @@ is
     $/basis.cm
     $/smlnj-lib.cm
     $QCHECK/qcheck.cm
-    ../lib.sml/lib.cm
