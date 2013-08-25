@@ -18,9 +18,9 @@ Concrete syntax is mostly a subset of Standard ML, but diverges in a few places 
 
 ## building and testing
 
-Requires [SML/NJ](http://smlnj.org/) and [QCheck/SML](http://contrapunctus.net/league/haques/qcheck/qcheck.html) for tests. Install QCheck by following the instructions there (likely need to edit ~/.smlnj-pathconfig) and then:
+Requires [SML/NJ](http://smlnj.org/) and [QCheck/SML](http://contrapunctus.net/league/haques/qcheck/qcheck.html); make sure to add `QCHECK /path/to/qcheck` to your `~/.smlnj-pathconfig`.
 
-`make -f Makefile_parser test`
+Run `make` for the default build; see the Makefile for more targets.
 
 Would like to get it building under MLton, which probably works as I tend to carefully avoid ML language extensions, but still need to test and (crucially) write MLton build scripts (.mlb files).
 
