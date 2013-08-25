@@ -11,6 +11,8 @@ Library
 
     structure Main
 is
+    src/show.sml
+
     src/type.sml
     src/typecheck.sml
     src/constraint.sml
@@ -30,4 +32,3 @@ is
     $/basis.cm
     $/smlnj-lib.cm
     $QCHECK/qcheck.cm
-    ../lib.sml/lib.cm
