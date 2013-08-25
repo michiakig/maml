@@ -1,9 +1,0 @@
-build:
-	ml-build parser.cm Main.main
-
-test:
-	ml-build parser.cm Main.main > /dev/null
-	sml @SMLload=parser.x86-darwin
-
-clean:
-	rm -f *.x86-darwin
