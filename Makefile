@@ -7,9 +7,3 @@ test:	default
 clean:
 	rm -f *.x86-darwin
 	rm -rf .cm/ src/.cm/ tests/.cm/
-
-parser:
-	ml-build parser.cm Main.main
-
-parser-test: parser
-	sml @SMLload=parser.x86-darwin
