@@ -28,8 +28,6 @@ It should build under MLton and other Standard ML compilers, as it doesn't use a
 
 ### lexer
 
-- Reset column numbers on new lines
-- Read & lex files, as well as strings
 - Comments
 
 ### parser
