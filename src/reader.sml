@@ -1,5 +1,5 @@
 (*
- * Collection of readers and function on readers and streams
+ * Collection of readers and functions on readers and streams
  * See http://spacemanaki.com/blog/2013/08/31/Polymorphic-streams-in-ML/
  *)
 structure Reader =
@@ -40,6 +40,9 @@ fun consume (rdr : ('a, 'b) t) s =
        consume' [] s
     end
 
+(*
+ * Consume elements from s as long as p returns true. Returns elements as a list
+ *)
 fun takeWhile rdr p s =
     let
        fun takeWhile' acc s =
@@ -52,6 +55,9 @@ fun takeWhile rdr p s =
        takeWhile' [] s
     end
 
+(*
+ * Consume elements from s up until p returns true, then return the rest of the stream
+ *)
 fun dropWhile rdr p s =
     let
        fun dropWhile' s =
