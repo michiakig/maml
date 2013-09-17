@@ -10,8 +10,14 @@ Library
     structure Constraint
 
     structure Main
+
+    structure Reader
+    structure Pos
 is
     src/show.sml
+
+    src/reader.sml
+    src/position.sml
 
     src/type.sml
     src/typecheck.sml
@@ -24,6 +30,8 @@ is
     src/ast.sml
     src/monoast.sml
 
+
+    tests/legacy.sml
     tests/lexer.sml
     tests/parser.sml
     tests/typeinf.sml

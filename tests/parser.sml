@@ -8,13 +8,13 @@ structure P = AST.Pattern.Complex
 fun test _ =
     let
        fun decl name = check (List.getItem, SOME (Show.pair (fn x => x, D.show)))
-                             (name, pred (fn (s, ast) => (MonoAST.Decl.make (hd (Parser.parse (Lexer.lexStr s)))) = ast))
+                             (name, pred (fn (s, ast) => (MonoAST.Decl.make (hd (Parser.parse (Legacy.lexStr s)))) = ast))
 
        fun expr name = check (List.getItem, SOME (Show.pair (fn x => x, E.show)))
-                             (name, pred (fn (s, ast) => (MonoAST.Expr.make (Parser.parseExpr (Lexer.lexStr s))) = ast))
+                             (name, pred (fn (s, ast) => (MonoAST.Expr.make (Parser.parseExpr (Legacy.lexStr s))) = ast))
 
        fun typ name = check (List.getItem, SOME (Show.pair (fn x => x, T.show)))
-                            (name, pred (fn (s, ast) => (MonoAST.Type.make (Parser.parseType (Lexer.lexStr s))) = ast))
+                            (name, pred (fn (s, ast) => (MonoAST.Type.make (Parser.parseType (Legacy.lexStr s))) = ast))
     in
        (
          expr "parser/exprs"

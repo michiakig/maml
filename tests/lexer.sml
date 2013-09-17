@@ -1,13 +1,20 @@
 structure LexerTests =
 struct
-
 open QCheck
-
 structure L = Token
-
+(*
+ * Compare Pos.t with {line: int, col: int}
+ *)
+fun posEq (pos, {line, col}) =
+    Pos.line pos = line andalso Pos.col pos = col
+(*
+ * Compare Pos.t Token.t with {line: int, col: int} Token.t
+ *)
+fun tokEq (t1, t2) =
+    posEq (Token.getInfo t1, Token.getInfo t2) andalso Token.eq (t1, t2)
 fun test _ = (
    check (List.getItem, SOME (Show.pair (fn x => x, Show.list L.show)))
-         ("lexer", pred (fn (s, toks) => (Lexer.lexStr s) = toks))
+         ("lexer", pred (fn (s, toks) => ListPair.allEq tokEq (Legacy.lexStr s, toks)))
          [
            ("0",                        [L.Num ({line=1,col=1}, 0)])
           ,("fn x=>x",                  [L.Fn {line=1,col=1}, L.Id ({line=1,col=4},"x"), L.DArrow {line=1,col=5}, L.Id ({line=1,col=7},"x")])
