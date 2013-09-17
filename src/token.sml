@@ -82,4 +82,31 @@ fun getInfo (Num (info, _))     = info
   | getInfo (TArrow info)       = info
   | getInfo (Comma info)        = info
 
+fun eq (Num _, Num _) = true
+  | eq (Bool _, Bool _) = true
+  | eq (Id (_, a), Id (_, b)) = a = b
+  | eq (Infix (_, a), Infix (_, b)) = a = b
+  | eq (Ctor (_, a), Ctor (_, b)) = a = b
+  | eq (LParen _, LParen _) = true
+  | eq (RParen _, RParen _) = true
+  | eq (If _, If _) = true
+  | eq (Else _, Else _) = true
+  | eq (Then _, Then _) = true
+  | eq (Fn _, Fn _) = true
+  | eq (DArrow _, DArrow _) = true
+  | eq (Let _, Let _) = true
+  | eq (End _, End _) = true
+  | eq (Eqls _, Eqls_) = true
+  | eq (In _, In _) = true
+  | eq (Match _, Match _) = true
+  | eq (With _, With _) = true
+  | eq (Bar _, Bar _) = true
+  | eq (Datatype _, Datatype _) = true
+  | eq (Of _, Of _) = true
+  | eq (Val _, Val _) = true
+  | eq (TypeVar _, TypeVar _) = true
+  | eq (TArrow _, TArrow _) = true
+  | eq (Comma _, Comma _) = true
+  | eq _ = false
+
 end
