@@ -74,106 +74,87 @@ exception TypeError
 
 val rec genCon : (T.t Env.map * typed E.t * Constraint.Set.set) -> Constraint.Set.set =
  fn (env, e, constrs) =>
-    let
-       fun builtin (self, child1, child2, arg1, arg2, ret, cs) =
-           let
-              val child1' = gettyp child1
-              val child2' = gettyp child2
-              val self' = gettyp self
-              val cs' = Constraint.Set.addList (cs,
-                                           [{lhs = self', rhs = ret},
-                                            {lhs = child1', rhs = arg1},
-                                            {lhs = child2', rhs = arg2}])
-              val cs'' = genCon (env, child1, cs')
-              val cs''' = genCon (env, child2, cs'')
-           in
-              cs'''
-           end
+    case e of
 
-    in
-       case e of
+        E.Bool ({typ, ...}, _) => Constraint.Set.add (constrs, {lhs = typ, rhs = T.Bool})
 
-           E.Bool ({typ, ...}, _) => Constraint.Set.add (constrs, {lhs = typ, rhs = T.Bool})
+      | E.Num ({typ, ...}, _) => Constraint.Set.add (constrs, {lhs = typ, rhs = T.Num})
 
-         | E.Num ({typ, ...}, _) => Constraint.Set.add (constrs, {lhs = typ, rhs = T.Num})
+      | E.If ({typ, ...}, e1, e2, e3) =>
+        let
+           fun f (x, cs) = genCon (env, x, cs)
+           val constrs' = foldl f constrs [e1, e2, e3]
+           val tv1 = gettyp e1
+           val tv2 = gettyp e2
+           val tv3 = gettyp e3
+           val constrs'' = [
+              {lhs = tv1, rhs = T.Bool},
+              {lhs = tv2, rhs = typ},
+              {lhs = tv3, rhs = typ}
+           ]
+        in
+           Constraint.Set.addList (constrs', constrs'')
+        end
 
-         | E.If ({typ, ...}, e1, e2, e3) =>
-           let
-              fun f (x, cs) = genCon (env, x, cs)
-              val constrs' = foldl f constrs [e1, e2, e3]
-              val tv1 = gettyp e1
-              val tv2 = gettyp e2
-              val tv3 = gettyp e3
-              val constrs'' = [
-                 {lhs = tv1, rhs = T.Bool},
-                 {lhs = tv2, rhs = typ},
-                 {lhs = tv3, rhs = typ}
-              ]
-           in
-              Constraint.Set.addList (constrs', constrs'')
-           end
+      | E.Fn ({typ=bound, ...}, {typ=self, ...}, x, body) =>
+        let
+           val tvbody = gettyp body
+           val constrs' = genCon (env, body, constrs)
+        in
+           Constraint.Set.add (constrs', {lhs = self, rhs = T.Arrow (bound, tvbody)})
+        end
 
-         | E.Fn ({typ=bound, ...}, {typ=self, ...}, x, body) =>
-           let
-              val tvbody = gettyp body
-              val constrs' = genCon (env, body, constrs)
-           in
-              Constraint.Set.add (constrs', {lhs = self, rhs = T.Arrow (bound, tvbody)})
-           end
+      | E.Id _ => constrs
 
-         | E.Id _ => constrs
+      | E.App ({typ,...}, f, a) =>
+        let
+           val tvf = gettyp f
+           val tva = gettyp a
+           val constrs' = genCon (env, f, constrs)
+           val constrs'' = genCon (env, a, constrs')
+        in
+           Constraint.Set.add (constrs'',
+                               {lhs = tvf, rhs = T.Arrow (tva, typ)})
+        end
 
-         | E.App ({typ,...}, f, a) =>
-           let
-              val tvf = gettyp f
-              val tva = gettyp a
-              val constrs' = genCon (env, f, constrs)
-              val constrs'' = genCon (env, a, constrs')
-           in
-              Constraint.Set.add (constrs'',
-                             {lhs = tvf, rhs = T.Arrow (tva, typ)})
-           end
+      | E.Tuple ({typ, ...}, es) =>
+        let
+           val constrs' = foldl (fn (e, acc) => genCon (env, e, acc)) constrs es
+        in
+           Constraint.Set.add (constrs', {lhs = typ, rhs = T.Tuple (map gettyp es)})
+        end
 
-         | E.Tuple ({typ, ...}, es) =>
-           let
-              val constrs' = foldl (fn (e, acc) => genCon (env, e, acc)) constrs es
-           in
-              Constraint.Set.add (constrs', {lhs = typ, rhs = T.Tuple (map gettyp es)})
-           end
+      | E.Case ({typ, ...}, e1, clauses) =>
+        let
+           (* TODO: type check patterns *)
+           fun gen ((pat, exp), cs) =
+               let val pattyp =
+                       case pat of
+                           AST.Pattern.Complex.Ctor (ctor, subpat) => (case Env.find (env, ctor) of
+                                                                           NONE => raise TypeError
+                                                                         | SOME (T.Arrow (_, typ)) => typ
+                                                                         | SOME typ => typ)
+               in
+                  Constraint.Set.addList (genCon (env, exp, cs), [{lhs = gettyp exp, rhs = typ},
+                                                                  {lhs = gettyp e1, rhs = pattyp}])
+               end
 
-         | E.Case ({typ, ...}, e1, clauses) =>
-           let
-              (* TODO: type check patterns *)
-              fun gen ((pat, exp), cs) =
-                  let val pattyp =
-                          case pat of
-                              AST.Pattern.Complex.Ctor (ctor, subpat) => (case Env.find (env, ctor) of
-                                                                          NONE => raise TypeError
-                                                                        | SOME (T.Arrow (_, typ)) => typ
-                                                                        | SOME typ => typ)
-                  in
-                     Constraint.Set.addList (genCon (env, exp, cs), [{lhs = gettyp exp, rhs = typ},
-                                                                     {lhs = gettyp e1, rhs = pattyp}])
-                  end
+        in
+           foldl gen constrs clauses
+        end
 
-           in
-              foldl gen constrs clauses
-           end
-
-         (* infix expr, treat as an application the operator to a pair *)
-         | E.Infix ({typ, ...}, oper, e1, e2) =>
-           let
-              val tvarg = T.Tuple [gettyp e1, gettyp e2]
-              val constrs' = genCon (env, e1, constrs)
-              val constrs'' = genCon (env, e2, constrs')
-           in
-              case Env.find (env, oper) of
-                  NONE => raise TypeError
-                | SOME tvop =>
-                  Constraint.Set.add (constrs'', {lhs = tvop, rhs = T.Arrow (tvarg, typ)})
-           end
-
-    end
+      (* infix expr, treat as an application the operator to a pair *)
+      | E.Infix ({typ, ...}, oper, e1, e2) =>
+        let
+           val tvarg = T.Tuple [gettyp e1, gettyp e2]
+           val constrs' = genCon (env, e1, constrs)
+           val constrs'' = genCon (env, e2, constrs')
+        in
+           case Env.find (env, oper) of
+               NONE => raise TypeError
+             | SOME tvop =>
+               Constraint.Set.add (constrs'', {lhs = tvop, rhs = T.Arrow (tvarg, typ)})
+        end
 
 fun prettyPrintConstraint ({lhs, rhs} : Constraint.t, env, ast) : string =
     let
