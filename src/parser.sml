@@ -39,92 +39,89 @@ struct
       fun makeTypeReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Type.t, 'b) Reader.t =
          fn s =>
           let
-             val rest = ref s
-             fun has () = case rdr (!rest) of
-                              SOME _ => true
-                            | NONE => false
-             fun peek () = case rdr (!rest) of
-                               NONE => NONE
-                             | SOME (t, _) => SOME t
-             fun adv () = rest := (case rdr (!rest) of
-                                       NONE => raise Empty
-                                     | SOME (_, s') => s')
-             fun next () = peek () before adv ()
-
-             fun log s =
-                 if debug
-                    then (print (s ^ "(" ^
-                                 (case peek () of
-                                      NONE => ".."
-                                    | SOME t => Token.show t)
-                                 ^ ")")
-                         ; print "\n")
+             fun log s msg =
+                 if debug then
+                    print (msg ^ "(" ^
+                           (case rdr s of
+                                NONE => ".."
+                              | SOME (t, _) => Token.show t)
+                           ^ ")\n")
                  else ()
-             fun expected s t = raise SyntaxError ("expected " ^ s ^
-                                                   ", got " ^ Token.show t)
 
-             fun tyseq (acc : 'a AST.Type.t list) : 'a AST.Type.t =
-                 (log "tyseq";
-                  case peek () of
-                      SOME (Token.RParen _) => (adv ();
-                                                case peek () of
-                                                    SOME (Token.Id (pos, c)) => (adv (); AST.Type.Con (pos, c, rev acc))
-                                                  | SOME t => expected "tycon following tyseq in type expression" t
-                                                  | NONE => raise SyntaxError "unexpected EOF")
-                    | SOME (Token.Comma _) => (adv (); tyseq (infexp 0 :: acc))
-                    | SOME t => expected "comma or )" t
-                    | NONE => raise SyntaxError "unexpected EOF")
+             fun expected msg s =
+                 let
+                    val got = case rdr s of
+                                  NONE => "unexpected EOF"
+                                | SOME (t, _) => Token.show t
+                 in
+                    raise SyntaxError ("expected " ^ msg ^ ", got " ^ got)
+                 end
+
+             (*
+              * parse a type sequence as argument to a type ctor, i.e. ('a, 'b) either
+              *)
+             fun tyseq s acc =
+                 (log s "tyseq";
+                  case rdr s of
+                      SOME (Token.RParen _, s') => (case rdr s' of
+                                                        SOME (Token.Id (p, c), s'') => SOME (AST.Type.Con (p, c, rev acc), s'')
+                                                      |  _                          => expected "tycon following tyseq in type expression" s')
+                    | SOME (Token.Comma _, s') => (case infexp s' 0 of
+                                                       SOME (t, s'') => tyseq s'' (t :: acc)
+                                                     | NONE          => expected "type expression following comma in tyseq" s')
+                    | _ => expected "comma or right paren" s)
 
              (*
               * parse an atomic expression -- var or parenthesized infix
               *)
-             and atom () : 'a AST.Type.t =
-                 (log "atom";
-                  case peek () of
-                      SOME (Token.TypeVar v) => (adv (); AST.Type.Var v)
-                    | SOME (Token.LParen pos)  => (adv ();
-                                                   let val t = infexp 0
-                                                   in
-                                                      case peek () of
-                                                          SOME (Token.RParen _) => (adv (); AST.Type.Paren (pos, t))
-                                                        | SOME (Token.Comma _) => tyseq [t]
-                                                        | SOME t => expected "comma or )" t
-                                                        | NONE => raise SyntaxError "unexpected EOF"
-                                                   end)
-                    | SOME (Token.Id (pos, c)) => (adv(); AST.Type.Con (pos, c, []))
-                    | SOME t             => expected "TypeVar, LParen, or Id" t
-                    | NONE               => raise SyntaxError "unexpected EOF")
+             and atom s =
+                 (log s "atom";
+                  case rdr s of
+                      SOME (Token.TypeVar v, s') => SOME (AST.Type.Var v, s')
+                    | SOME (Token.LParen p, s') =>
+                      (case infexp s' 0 of
+                           SOME (ty, s'') =>
+                           (case rdr s'' of
+                                SOME (Token.RParen _, s''') => SOME (AST.Type.Paren (p, ty), s''')
+                              | SOME (Token.Comma _, s''')  => tyseq s'' [ty]
+                              | _                           => expected "comma or right paren" s'')
+                         | NONE => expected "type expression after left paren" s')
+                    | SOME (Token.Id (p, c), s') => SOME (AST.Type.Con (p, c, []), s')
+                    | _                          => expected "type variable, left paren, or type constructor (ident)" s)
 
              (*
               * parse an infix expression
               *)
-             and infexp (prec : int) : 'a AST.Type.t =
-                 (log "infexp";
+             and infexp s prec =
+                 (log s "infexp";
                   let
-                     fun infexp' (prec : int, lhs : 'a AST.Type.t) : 'a AST.Type.t =
-                         (log "infexp'";
-                          case peek () of
-                              SOME (Token.Id (pos, c)) => (adv (); infexp' (prec, AST.Type.Con (pos, c, [lhs])))
-                            | SOME t =>
-                              if isInfix t
-                              then
+                     fun infexp' s prec lhs =
+                         (log s "infexp'";
+                          case rdr s of
+                              SOME (Token.Id (p, c), s') => (infexp' s' prec (AST.Type.Con (p, c, [lhs])))
+                            | SOME (t, s') =>
+                              if isInfix t then
                                  let val (prec', ctor, assoc) = getPrec t
                                  in
-                                    if prec < prec'
-                                    then let val _ = adv ();
-                                             val prec'' = case assoc of Left => prec' | Right => prec' - 1
-                                             val lhs = ctor (Token.getInfo t, lhs, infexp prec'')
-                                         in infexp' (prec, lhs)
-                                         end
-                                    else lhs
+                                    if prec < prec' then
+                                       let
+                                          val prec'' = case assoc of Left => prec' | Right => prec' - 1
+                                       in
+                                          case infexp s' prec'' of
+                                              SOME (ty, s'') => infexp' s'' prec (ctor (Token.getInfo t, lhs, ty))
+                                            | _ => expected "right hand side in type expression" s'
+                                       end
+                                    else SOME (lhs, s)
                                  end
-                              else lhs
-                            | _ => lhs)
+                              else SOME (lhs, s)
+                            | NONE => SOME (lhs, s))
                   in
-                     infexp' (prec, atom ())
+                     case atom s of
+                         NONE => NONE
+                       | SOME (ast, s') => infexp' s' prec ast
                   end)
           in
-             SOME (infexp 0, !rest)
+             infexp s 0
           end
    end
 
