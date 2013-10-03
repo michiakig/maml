@@ -13,7 +13,25 @@ struct
    exception SyntaxError of string
 
    (* flip this to print the grammar productions at each step *)
-  val debug = false
+   val debug = false
+
+   fun log rdr s msg =
+       if debug then
+          print (msg ^ "(" ^
+                 (case rdr s of
+                      NONE => ".."
+                    | SOME (t, _) => Token.show t)
+                 ^ ")\n")
+       else ()
+
+   fun expected rdr s msg =
+       let
+          val got = case rdr s of
+                        NONE => "unexpected EOF"
+                      | SOME (t, _) => Token.show t
+       in
+          raise SyntaxError ("expected " ^ msg ^ ", got " ^ got)
+       end
 
    (*
     * Pratt parser for type expressions
@@ -39,43 +57,25 @@ struct
       fun makeTypeReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Type.t, 'b) Reader.t =
          fn s =>
           let
-             fun log s msg =
-                 if debug then
-                    print (msg ^ "(" ^
-                           (case rdr s of
-                                NONE => ".."
-                              | SOME (t, _) => Token.show t)
-                           ^ ")\n")
-                 else ()
-
-             fun expected msg s =
-                 let
-                    val got = case rdr s of
-                                  NONE => "unexpected EOF"
-                                | SOME (t, _) => Token.show t
-                 in
-                    raise SyntaxError ("expected " ^ msg ^ ", got " ^ got)
-                 end
-
              (*
               * parse a type sequence as argument to a type ctor, i.e. ('a, 'b) either
               *)
              fun tyseq s acc =
-                 (log s "tyseq";
+                 (log rdr s "tyseq";
                   case rdr s of
                       SOME (Token.RParen _, s') => (case rdr s' of
                                                         SOME (Token.Id (p, c), s'') => SOME (AST.Type.Con (p, c, rev acc), s'')
-                                                      |  _                          => expected "tycon following tyseq in type expression" s')
+                                                      |  _                          => expected rdr s' "tycon following tyseq in type expression")
                     | SOME (Token.Comma _, s') => (case infexp s' 0 of
                                                        SOME (t, s'') => tyseq s'' (t :: acc)
-                                                     | NONE          => expected "type expression following comma in tyseq" s')
-                    | _ => expected "comma or right paren" s)
+                                                     | NONE          => expected rdr s' "type expression following comma in tyseq")
+                    | _ => expected rdr s "comma or right paren")
 
              (*
               * parse an atomic expression -- var or parenthesized infix
               *)
              and atom s =
-                 (log s "atom";
+                 (log rdr s "atom";
                   case rdr s of
                       SOME (Token.TypeVar v, s') => SOME (AST.Type.Var v, s')
                     | SOME (Token.LParen p, s') =>
@@ -84,19 +84,19 @@ struct
                            (case rdr s'' of
                                 SOME (Token.RParen _, s''') => SOME (AST.Type.Paren (p, ty), s''')
                               | SOME (Token.Comma _, s''')  => tyseq s'' [ty]
-                              | _                           => expected "comma or right paren" s'')
-                         | NONE => expected "type expression after left paren" s')
+                              | _                           => expected rdr s'' "comma or right paren")
+                         | NONE => expected rdr s' "type expression after left paren")
                     | SOME (Token.Id (p, c), s') => SOME (AST.Type.Con (p, c, []), s')
-                    | _                          => expected "type variable, left paren, or type constructor (ident)" s)
+                    | _                          => expected rdr s "type variable, left paren, or type constructor (ident)")
 
              (*
               * parse an infix expression
               *)
              and infexp s prec =
-                 (log s "infexp";
+                 (log rdr s "infexp";
                   let
                      fun infexp' s prec lhs =
-                         (log s "infexp'";
+                         (log rdr s "infexp'";
                           case rdr s of
                               SOME (Token.Id (p, c), s') => (infexp' s' prec (AST.Type.Con (p, c, [lhs])))
                             | SOME (t, s') =>
@@ -109,7 +109,7 @@ struct
                                        in
                                           case infexp s' prec'' of
                                               SOME (ty, s'') => infexp' s'' prec (ctor (Token.getInfo t, lhs, ty))
-                                            | _ => expected "right hand side in type expression" s'
+                                            | _ => expected rdr s' "right hand side in type expression"
                                        end
                                     else SOME (lhs, s)
                                  end
@@ -181,15 +181,9 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
                        | _ => 0)
             else 0)
 
-       fun log s =
-           let val t = if has () then Token.show (peek ()) else ".."
-           in if debug
-                 then print (s ^ "(" ^ t ^ ")\n")
-              else ()
-           end
 
        fun expr () : 'a Expr.t =
-           (log "expr";
+           (log rdr (!rest) "expr";
             case peek () of
                 Token.If pos =>
                 (adv ()
@@ -227,7 +221,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
               | _ => infexp 0)
 
        and clauses () : (AST.Pattern.Complex.t * 'a Expr.t) list =
-           (log "clauses";
+           (log rdr (!rest) "clauses";
             let
                val pat = pattern ()
             in
@@ -237,7 +231,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
             end)
 
        and clauses' () : (AST.Pattern.Complex.t * 'a Expr.t) list =
-           (log "clauses'"
+           (log rdr (!rest) "clauses'"
            ; if has ()
                 then case peek () of
                          Token.Bar _ => (adv () ; clauses ())
@@ -245,7 +239,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
              else [])
 
        and pattern () : AST.Pattern.Complex.t =
-           (log "pattern"
+           (log rdr (!rest) "pattern"
            ; case peek () of
                  Token.Id (_, x) => (adv (); AST.Pattern.Complex.Var x)
                | Token.Ctor (_, c) => (adv ();
@@ -266,7 +260,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
                | t => expected "var, tuple, or ctor application in pattern" t)
 
        and patterns () : AST.Pattern.Complex.t list =
-           (log "patterns"
+           (log rdr (!rest) "patterns"
            ; if has ()
                 then case peek () of
                          Token.Comma _ => (adv (); pattern () :: patterns ())
@@ -275,7 +269,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
              else [])
 
        and infexp (prec : int) : 'a Expr.t =
-           (log "infexp";
+           (log rdr (!rest) "infexp";
             let
                val lhs = appexp ()
             in
@@ -285,7 +279,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
             end)
 
        and infexp' (prec : int, lhs : 'a Expr.t) : 'a Expr.t =
-           (log "infexp'";
+           (log rdr (!rest) "infexp'";
             let
                val prec' = getPrec ()
             in
@@ -300,7 +294,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
             end)
 
        and tuple () : 'a Expr.t list =
-           (log "tuple";
+           (log rdr (!rest) "tuple";
             case peek () of
                 Token.Comma _ => (adv (); let val e = expr ()
                                           in e :: tuple ()
@@ -309,7 +303,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
               | t => expected "comma or )" t)
 
        and atexp () : 'a Expr.t =
-           (log "atexp";
+           (log rdr (!rest) "atexp";
             case peek () of
                 Token.Let pos =>
                 (adv ()
@@ -359,13 +353,13 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
         * lhs is the left hand side of the (potential) application
         *)
        and appexp' (lhs : 'a Expr.t) : 'a Expr.t =
-           (log "appexp'";
+           (log rdr (!rest) "appexp'";
             if has () andalso FIRSTatexp (peek ())
                then appexp' (Expr.App (Expr.getInfo lhs, lhs, atexp ()))
             else lhs)
 
        and appexp () : 'a Expr.t =
-           (log "appexp";
+           (log rdr (!rest) "appexp";
             appexp' (atexp ()))
 
     in
