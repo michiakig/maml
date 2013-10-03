@@ -34,15 +34,21 @@ struct
    in
 
       (*
-       * given a list of tokens, parse a single type expression, and return the unconsumed input
+       * accepts a token reader and returns a reader for type expressions
        *)
-      fun parseType' (ts : 'a Token.t list) : 'a AST.Type.t * 'a Token.t list =
+      fun makeTypeReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Type.t, 'b) Reader.t =
+         fn s =>
           let
-             val rest = ref ts
-             fun has () = not (null (!rest))
-             fun peek () = case !rest of [] => NONE | t :: _ => SOME t
-             fun unsafe () = hd (!rest)
-             fun adv () = rest := tl (!rest)
+             val rest = ref s
+             fun has () = case rdr (!rest) of
+                              SOME _ => true
+                            | NONE => false
+             fun peek () = case rdr (!rest) of
+                               NONE => NONE
+                             | SOME (t, _) => SOME t
+             fun adv () = rest := (case rdr (!rest) of
+                                       NONE => raise Empty
+                                     | SOME (_, s') => s')
              fun next () = peek () before adv ()
 
              fun log s =
@@ -118,7 +124,7 @@ struct
                      infexp' (prec, atom ())
                   end)
           in
-             (infexp 0, !rest)
+             SOME (infexp 0, !rest)
           end
    end
 
@@ -142,16 +148,29 @@ fun getBinop (Token.Infix (_, oper)) = oper
 structure Expr = AST.Expr
 
 (*
- * Given a list of tokens, parse one declaration, return it and the remaining input
+ * accepts a token reader and returns a reader for expressions
  *)
-fun parseExpr' (toks : 'a Token.t list) : 'a AST.Expr.t * 'a Token.t list =
+fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reader.t =
+   fn s =>
     let
-       val rest = ref toks
-       fun has () = not (null (!rest))
-       fun adv () = rest := tl (!rest)
-       fun next () = hd (!rest) before adv ()
+       val rest = ref s
+
+       fun has () = case rdr (!rest) of
+                        NONE => false
+                      | SOME _ => true
+
+       fun adv () = rest := (case rdr (!rest) of
+                                 NONE => raise Empty
+                               | SOME (_, s) => s)
+
+       fun peek () = case rdr (!rest) of
+                         NONE => raise Empty
+                       | SOME (t, _) => t
+
+       fun next () = peek () before adv ()
+
        fun getNext () = if has () then SOME (next ()) else NONE
-       fun peek () = hd (!rest)
+
        fun err s = raise SyntaxError ("err " ^ s)
        fun expected s t = raise SyntaxError ("expected " ^ s ^ ", got " ^ Token.show t)
 
@@ -353,17 +372,33 @@ fun parseExpr' (toks : 'a Token.t list) : 'a AST.Expr.t * 'a Token.t list =
             appexp' (atexp ()))
 
     in
-       (expr (), !rest)
+       SOME (expr (), !rest)
     end
 
-fun parseDecl' (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t * 'a Token.t list =
+(*
+ * accepts a token reader and returns a reader for declarations
+ *)
+fun makeDeclReader (rdr : ('a Token.t, 'b) Reader.t) : (('a, 'a) AST.Decl.t, 'b) Reader.t =
+   fn s =>
     let
-       val rest = ref toks
-       fun has () = not (null (!rest))
-       fun adv () = rest := tl (!rest)
-       fun next () = hd (!rest) before adv ()
+       val rest = ref s
+
+       fun has () = case rdr (!rest) of
+                        NONE => false
+                      | SOME _ => true
+
+       fun adv () = rest := (case rdr (!rest) of
+                                 NONE => raise Empty
+                               | SOME (_, s) => s)
+
+       fun peek () = case rdr (!rest) of
+                         NONE => raise Empty
+                       | SOME (t, _) => t
+
+       fun next () = peek () before adv ()
+
        fun getNext () = if has () then SOME (next ()) else NONE
-       fun peek () = hd (!rest)
+
        fun err s = raise SyntaxError ("err " ^ s)
        fun expected s t = raise SyntaxError ("expected " ^ s ^ ", got " ^ Token.show t)
 
@@ -382,9 +417,9 @@ fun parseDecl' (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t * 'a Token.t list 
                                          then
                                             case peek () of
                                                 Token.Of _ => (adv ();
-                                                               let val (typ, rest') = parseType' (!rest)
-                                                               in rest := rest' ; (name, SOME typ)
-                                                               end)
+                                                               case (makeTypeReader rdr) (!rest) of
+                                                                   NONE => raise Empty
+                                                                 | SOME (typ, rest') => (rest := rest' ; (name, SOME typ)))
                                               | _ => (name, NONE)
                                          else (name, NONE))
               | t => expected "ctor in datatype decl" t)
@@ -439,47 +474,41 @@ fun parseDecl' (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t * 'a Token.t list 
                                   case peek () of
                                       Token.Id (_, id) => (adv (); case peek () of
                                                                        Token.Eqls _ => (adv ();
-                                                                                        let
-                                                                                           val (e, rest') = parseExpr' (!rest)
-                                                                                        in
-                                                                                           rest := rest'
-                                                                                         ; AST.Decl.Val (pos, id, e)
-                                                                                        end)
+                                                                                        case makeExprReader rdr (!rest) of
+                                                                                            NONE => raise Empty
+                                                                                          | SOME (e, rest') => (rest := rest' ; AST.Decl.Val (pos, id, e)))
                                                                      | t => expected "= in val decl" t)
                                     | t => expected "ident in val decl" t)
               | t => expected "datatype or val in top-level decl" t)
     in
-       (decl (), !rest)
-    end
-
-fun parse (toks : 'a Token.t list) : ('a, 'a) AST.Pgm.t =
-    let
-       fun parse' (decl, []) = [decl]
-         | parse' (decl, rest) =
-           decl :: parse' (parseDecl' rest)
-    in
-       parse' (parseDecl' toks)
+       SOME (decl (), !rest)
     end
 
 fun parseExpr (toks : 'a Token.t list) : 'a AST.Expr.t =
-    let
-       val (ast, _) = parseExpr' toks
-    in
-       ast
-    end
+    case makeExprReader Reader.list toks of
+        NONE => raise Empty
+      | SOME (ast, _) => ast
 
 fun parseType (toks : 'a Token.t list) : 'a AST.Type.t =
-    let
-       val (ast, _) = parseType' toks
-    in
-       ast
-    end
+    case makeTypeReader Reader.list toks of
+        NONE => raise Empty
+      | SOME (ast, _) => ast
 
 fun parseDecl (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t =
+    case makeDeclReader Reader.list toks of
+        NONE => raise Empty
+      | SOME (ast, _) => ast
+
+fun parse (toks : 'a Token.t list) : ('a, 'a) AST.Pgm.t =
     let
-       val (ast, _) = parseDecl' toks
+       val parseDecl' = makeDeclReader Reader.list
+
+       fun parse' toks =
+           (case parseDecl' toks of
+                NONE => []
+              | SOME (ast, rest) => ast :: parse' rest) handle Empty => []
     in
-       ast
+       parse' toks
     end
 
 end
