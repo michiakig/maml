@@ -7,6 +7,8 @@ end
 structure Lexer : LEXER =
 struct
 
+open Maml
+
 fun fst (a, _) = a
 fun snd (_, b) = b
 
@@ -86,7 +88,7 @@ fun make (rdr : (char * Pos.t, 'a) Reader.t) : (Pos.t Token.t, 'a) Reader.t =
             (* type variables *)
             | SOME ((#"'", p), s') =>
               (case getWord rdr s' of
-                   (SOME ("", _), _) => raise LexicalError "Compiler bug: getWord returned empty string"
+                   (SOME ("", _), _) => raise CompilerBug "(Lexer.make) getWord returned empty string"
                  | (NONE, _) => raise LexicalError "Expected type variable after apostrophe"
                  | (SOME (v, _), s'') => SOME (Token.TypeVar (p, v), s''))
 
@@ -94,7 +96,7 @@ fun make (rdr : (char * Pos.t, 'a) Reader.t) : (Pos.t Token.t, 'a) Reader.t =
             | SOME ((x, _), s') =>
               if Char.isDigit x then
                  case getInt rdr s of
-                     (NONE, _) => raise LexicalError "Compiler bug: getInt returned NONE, but stream starts with a digit"
+                     (NONE, _) => raise CompilerBug "(Lexer.make) getInt returned NONE, but stream starts with a digit"
                    | (SOME (n, p), s'') => SOME (Token.Num (p, n), s'')
               else (* all other tokens *)
                  case getWord rdr s of
@@ -115,7 +117,7 @@ fun make (rdr : (char * Pos.t, 'a) Reader.t) : (Pos.t Token.t, 'a) Reader.t =
                    | (SOME ("=", p), s'')        => SOME (Token.Eqls p, s'')
                    | (SOME ("=>", p), s'')       => SOME (Token.DArrow p, s'')
                    | (SOME ("->", p), s'')       => SOME (Token.TArrow p, s'')
-                   | (SOME ("", _), _)           => raise LexicalError ("Compiler bug: getWord returned empty string, but stream starts with #\"" ^ Char.toString x ^ "\"")
+                   | (SOME ("", _), _)           => raise CompilerBug ("(Lexer.make) getWord returned empty string, but stream starts with #\"" ^ Char.toString x ^ "\"")
                    | (NONE, _)                   => raise LexicalError "Error lexing"
                    | (SOME (id, p), s'') =>
                      if Char.isUpper (String.sub (id, 0)) then
