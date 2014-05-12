@@ -1,4 +1,6 @@
 Library
+    structure Maml
+
     structure Type
     structure Typecheck
 
@@ -14,6 +16,8 @@ Library
     structure Reader
     structure Pos
 is
+    src/maml.sml
+
     src/show.sml
 
     src/reader.sml

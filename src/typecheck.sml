@@ -1,6 +1,8 @@
 structure Typecheck =
 struct
 
+open Maml
+
 structure T = Type
 structure E = AST.Expr
 
@@ -329,6 +331,7 @@ fun applySubToAST (e : typed E.t, sub : T.t StringMap.map) =
            E.Infix ({typ = getType (tv, sub), pos = pos}, oper, applySubToAST (e1, sub), applySubToAST (e2, sub))
          | E.Infix (typed, oper, e1, e2) => E.Infix (typed, oper, applySubToAST (e1, sub), applySubToAST (e2, sub))
 
+         | E.Let _ => raise CompilerBug "(applySubToAst) not implemented yet: let"
     end
 
 local
