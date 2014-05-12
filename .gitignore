@@ -1,2 +1,3 @@
 .cm
 *.x86-darwin
+*.x86-linux
