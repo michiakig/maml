@@ -5,9 +5,17 @@ open QCheck infix ==>
 
 structure T = Type
 
+(* Parse an expression, and return the fully annotated AST *)
+fun infer s =
+    Typecheck.inferExpr (Typecheck.initEnv, Parser.parseExpr (Legacy.lexStr s))
+
+(* Parse an expression, and return the type of that expression *)
+fun typeOf s =
+    Type.normalize (Typecheck.gettyp (infer s))
+
 fun test _ = (
    check (List.getItem, SOME (Show.pair (T.show, fn x => x)))
-         ("typeof", pred (fn (ty, s) => Type.normalize (Typecheck.gettyp (Typecheck.inferExpr (Typecheck.initEnv, Parser.parseExpr (Legacy.lexStr s)))) = ty))
+         ("typeOf", pred (fn (ty, s) => ty = typeOf s))
          [
            (T.Num, "0")
           ,(T.Num, "0 + 1")
