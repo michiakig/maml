@@ -17,8 +17,7 @@ datatype 'a t = Num of 'a * int
               | End of 'a
               | Eqls of 'a
               | In of 'a
-              | Match of 'a
-              | With of 'a
+              | Case of 'a
               | Bar of 'a
 
               | Datatype of 'a
@@ -44,8 +43,7 @@ fun show (Num (_, n)) = "Num " ^ Int.toString n
   | show (End _) = "End"
   | show (Eqls _) = "Eqls"
   | show (In _) = "In"
-  | show (Match _) = "Match"
-  | show (With _) = "With"
+  | show (Case _) = "Case"
   | show (Bar _) = "Bar"
 
   | show (Datatype _) = "Datatype"
@@ -71,8 +69,7 @@ fun getInfo (Num (info, _))     = info
   | getInfo (End info)          = info
   | getInfo (Eqls info)         = info
   | getInfo (In info)           = info
-  | getInfo (Match info)        = info
-  | getInfo (With info)         = info
+  | getInfo (Case info)         = info
   | getInfo (Bar info)          = info
 
   | getInfo (Datatype info)     = info
@@ -98,8 +95,7 @@ fun eq (Num _, Num _) = true
   | eq (End _, End _) = true
   | eq (Eqls _, Eqls_) = true
   | eq (In _, In _) = true
-  | eq (Match _, Match _) = true
-  | eq (With _, With _) = true
+  | eq (Case _, Case _) = true
   | eq (Bar _, Bar _) = true
   | eq (Datatype _, Datatype _) = true
   | eq (Of _, Of _) = true

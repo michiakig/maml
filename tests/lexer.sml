@@ -80,7 +80,7 @@ fun test _ = (
 
           ,("case x of (Nil) => 0 | (Cons y ys) => 1",
             [
-              L.Match  {line=1,col=1},
+              L.Case   {line=1,col=1},
               L.Id    ({line=1,col=6}, "x"),
               L.Of     {line=1,col=8},
               L.LParen {line=1,col=11},
@@ -100,7 +100,7 @@ fun test _ = (
 
           ,("case x of 1 => 1 | 2 => 2",
             [
-              L.Match  {line=1,col=1},
+              L.Case   {line=1,col=1},
               L.Id    ({line=1,col=6}, "x"),
               L.Of     {line=1,col=8},
               L.Num   ({line=1,col=11}, 1),

@@ -209,7 +209,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
                                          | t => expected "=>" t)
                     | t => err ("expected formal arg in fn expr, got " ^ Token.show t))
 
-              | Token.Match pos =>
+              | Token.Case pos =>
                 (adv ()
                 ; let val e1 = expr ()
                   in case peek () of

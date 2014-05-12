@@ -75,13 +75,13 @@ fun subst (e1 : 'a E.t, x : string, e2 : string) : 'a E.t =
         else E.Let (a, x', subst (e3, x, e2), subst (e3, x, e2))
 
       (* match also binds new vars... *)
-      | m as E.Match (a, e3, qs) =>
+      | m as E.Case (a, e3, qs) =>
         let
            fun occurs (AST.Pattern.Complex.Var v) = v = x
              | occurs (AST.Pattern.Complex.Ctor (_, ps)) = List.exists occurs ps
            fun subst' (p, e) = if occurs p then (p, e) else (p, subst (e, x, e2))
         in
-           E.Match (a, subst (e3, x, e2), map subst' qs)
+           E.Case (a, subst (e3, x, e2), map subst' qs)
         end
 
 fun tack (x, xss) = (x :: hd xss) :: tl xss
@@ -165,7 +165,7 @@ and matchCtor ((u::us) : 'a E.t list, (q::qs) : 'a eqxn list, def : 'a E.t) : 'a
 
 fun mkEqxn (pat, e) = ([pat], e)
 
-fun desugar (E.Match (a, e, clauses), def) = match ([e], map mkEqxn clauses, def)
+fun desugar (E.Case (a, e, clauses), def) = match ([e], map mkEqxn clauses, def)
   | desugar _ = raise Assert "desugar: not implemented yet"
 
 end
