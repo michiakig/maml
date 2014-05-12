@@ -166,6 +166,7 @@ fun prettyPrintConstraint ({lhs, rhs} : Constraint.t, env, ast) : string =
          | showTyp (T.List t) = "[" ^ showTyp t ^ "]"
          | showTyp (T.Var tv) = tv
          | showTyp (T.Tuple ts) = "(" ^ String.concatWith "," (map showTyp ts) ^ ")"
+         | showTyp (T.Con (name, ts)) = name ^ "{" ^ String.concatWith "," (map showTyp ts) ^ "}"
     in
        showTyp lhs ^ " === " ^ showTyp rhs
     end
