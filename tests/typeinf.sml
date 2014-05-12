@@ -17,20 +17,26 @@ fun test _ = (
    check (List.getItem, SOME (Show.pair (T.show, fn x => x)))
          ("typeOf", pred (fn (ty, s) => ty = typeOf s))
          [
+           (* literals, arith infix *)
            (T.Num, "0")
           ,(T.Num, "0 + 1")
           ,(T.Num, "0 - 1")
+
+           (* if *)
           ,(T.Num, "if true then 0 else 1")
           ,(T.Bool, "if true then true else false")
 
+           (* functions *)
           ,(T.Arrow (T.Bool, T.Num), "fn x => if x then 0 else 1")
           ,(T.Arrow (T.Num, T.Num), "fn x => x + x")
           ,(T.Arrow (T.Var "a", T.Var "a"), "fn x => x")
 
-          ,(T.Num, "(fn x => x) 0")
-
+           (* nested functions *)
           ,(T.Arrow (T.Var "a", T.Arrow (T.Var "b", T.Var "b")), "fn x => fn y => y")
           ,(T.Arrow (T.Var "a", T.Arrow (T.Var "b", T.Var "a")), "fn x => fn y => x")
+
+           (* application *)
+          ,(T.Num, "(fn x => x) 0")
 
           (* ,(T.List T.Num, S.Cons (S.Num 0, S.Nil)) *)
           (* ,(T.List T.Num, S.Tl (S.Cons (S.Num 0, S.Nil))) *)
