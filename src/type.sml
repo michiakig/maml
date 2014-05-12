@@ -33,7 +33,9 @@ local
 
 fun list c =
     let
-       fun compare ([], []) = EQUAL
+       fun compare ([],    [])    = EQUAL
+         | compare (x::xs, [])    = GREATER
+         | compare ([], y::ys)    = LESS
          | compare (x::xs, y::ys) =
            case c (x, y) of
                EQUAL => compare (xs, ys)
