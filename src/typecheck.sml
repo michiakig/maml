@@ -166,12 +166,6 @@ fun prettyPrintConstraint ({lhs, rhs} : Constraint.t, env, ast) : string =
          | showTyp (T.List t) = "[" ^ showTyp t ^ "]"
          | showTyp (T.Var tv) = tv
          | showTyp (T.Tuple ts) = "(" ^ String.concatWith "," (map showTyp ts) ^ ")"
-           (* (* lookup ty vars in env, replace with ast if possible *) *)
-           (* (case Env.findK (env, tv) of *)
-           (*      SOME id => (case E.findById (ast, id) of *)
-           (*                      SOME n => "{(" ^ tv ^ ") " ^ E.show n ^ "}" *)
-           (*                    | NONE => "?" ^ tv) *)
-           (*    | NONE => tv) *)
     in
        showTyp lhs ^ " === " ^ showTyp rhs
     end
