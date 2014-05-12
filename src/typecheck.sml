@@ -62,6 +62,14 @@ fun assignTypeVars (env : T.t Env.map, e : AST.pos E.t) : typed E.t =
                             end)
                         cs)
 
+         | E.Let (boundp, selfp, x, e, body) =>
+           let
+              val boundVar = gensym ()
+              val env' = Env.insert (env, x, T.Var boundVar)
+           in
+              E.Let ({pos = boundp, typ = T.Var boundVar}, makeTyped selfp, x, assignTypeVars (env', e), assignTypeVars (env', body))
+           end
+
 fun gettyp (e : typed E.t) = #typ (E.getInfo e)
 
 exception TypeError

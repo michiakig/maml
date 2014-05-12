@@ -46,7 +46,7 @@ struct
                | E.App (_, f, a)         => App (make f, make a)
                | E.If (_, e1, e2, e3)    => If (make e1, make e2, make e3)
                | E.Fn (_, _, x, e)          => Fn (x, make e)
-               | E.Let (_, x, e1, e2)    => Let (x, make e1, make e2)
+               | E.Let (_, _, x, e1, e2)    => Let (x, make e1, make e2)
                | E.Case (_, e, clauses) => Case (make e, map (fn (p, e) => (p, make e)) clauses)
                | E.Infix (_, b, e1, e2)  => Infix (b, make e1, make e2)
                | E.Tuple (_, es)  => Tuple (map make es)

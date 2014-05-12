@@ -311,7 +311,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
                       Token.Val _ =>
                       (adv ()
                       ; case peek () of
-                            Token.Id (_, x) =>
+                            Token.Id (pos', x) =>
                             (adv ()
                             ; case peek () of
                                   Token.Eqls _ =>
@@ -322,7 +322,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
                                            (adv ();
                                             let val body = expr ()
                                             in case peek () of
-                                                   Token.End _ => (adv (); Expr.Let (pos, x, bound, body))
+                                                   Token.End _ => (adv (); Expr.Let (pos', pos, x, bound, body))
                                                  | t => expected "end" t
                                             end)
                                          | t => expected "in" t
