@@ -136,6 +136,8 @@ val rec genCon : (T.t Env.map * typed E.t * Constraint.Set.set) -> Constraint.Se
                                                                            NONE => raise TypeError
                                                                          | SOME (T.Arrow (_, typ)) => typ
                                                                          | SOME typ => typ)
+                         | AST.Pattern.Complex.Var _   => raise CompilerBug "(Typecheck.genCon/gen) not implemented yet: variable patterns"
+                         | AST.Pattern.Complex.Tuple _ => raise CompilerBug "(Typecheck.genCon/gen) not implemented yet: tuple patterns"
                in
                   Constraint.Set.addList (genCon (env, exp, cs), [{lhs = gettyp exp, rhs = typ},
                                                                   {lhs = gettyp e1, rhs = pattyp}])
@@ -157,6 +159,8 @@ val rec genCon : (T.t Env.map * typed E.t * Constraint.Set.set) -> Constraint.Se
              | SOME tvop =>
                Constraint.Set.add (constrs'', {lhs = tvop, rhs = T.Arrow (tvarg, typ)})
         end
+
+      | E.Let _ => raise CompilerBug "(Typecheck.genCon) not implemented yet: let"
 
 fun prettyPrintConstraint ({lhs, rhs} : Constraint.t, env, ast) : string =
     let
@@ -326,7 +330,7 @@ fun applySubToAST (e : typed E.t, sub : T.t StringMap.map) =
            E.Infix ({typ = getType (tv, sub), pos = pos}, oper, applySubToAST (e1, sub), applySubToAST (e2, sub))
          | E.Infix (typed, oper, e1, e2) => E.Infix (typed, oper, applySubToAST (e1, sub), applySubToAST (e2, sub))
 
-         | E.Let _ => raise CompilerBug "(applySubToAst) not implemented yet: let"
+         | E.Let _ => raise CompilerBug "(Typecheck.applySubToAst) not implemented yet: let"
     end
 
 local
