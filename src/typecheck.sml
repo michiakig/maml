@@ -62,15 +62,7 @@ fun assignTypeVars (env : T.t Env.map, e : AST.pos E.t) : typed E.t =
                             end)
                         cs)
 
-fun gettyp (E.Num ({typ, ...} : typed, _))  = typ
-  | gettyp (E.Bool ({typ, ...}, _))        = typ
-  | gettyp (E.Id ({typ, ...}, _))          = typ
-  | gettyp (E.Infix ({typ, ...}, _, _, _)) = typ
-  | gettyp (E.App ({typ, ...}, _, _))      = typ
-  | gettyp (E.If ({typ, ...}, _, _, _))    = typ
-  | gettyp (E.Fn (_, {typ, ...}, _, _))    = typ
-  | gettyp (E.Tuple ({typ, ...}, _)) = typ
-  | gettyp (E.Case ({typ, ...}, _, _)) = typ
+fun gettyp (e : typed E.t) = #typ (E.getInfo e)
 
 exception TypeError
 
