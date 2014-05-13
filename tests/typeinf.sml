@@ -19,8 +19,15 @@ fun test _ = (
          [
            (* literals, arith infix *)
            (T.Num, "0")
+          ,(T.Num, "123")
+          ,(T.Bool, "true")
+          ,(T.Bool, "false")
           ,(T.Num, "0 + 1")
           ,(T.Num, "0 - 1")
+
+          (* tuples *)
+          ,(T.Tuple [T.Num, T.Num], "(1, 2)")
+          ,(T.Tuple [T.Bool, T.Num, T.Bool], "(true, 2, false)")
 
            (* if *)
           ,(T.Num, "if true then 0 else 1")
