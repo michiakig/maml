@@ -26,6 +26,30 @@ fun test _ = (
               L.Id    ({line=1,col=7}, "x")
            ])
 
+          ,("fn (* comment *) x=>x",
+            [
+              L.Fn     {line=1,col=1},
+              L.Id    ({line=1,col=18}, "x"),
+              L.DArrow {line=1,col=19},
+              L.Id    ({line=1,col=21}, "x")
+           ])
+
+          ,("fn (* one comment *) (* another comment *) x=>x",
+            [
+              L.Fn     {line=1,col=1},
+              L.Id    ({line=1,col=44}, "x"),
+              L.DArrow {line=1,col=45},
+              L.Id    ({line=1,col=47}, "x")
+           ])
+
+          ,("fn (* multi-line \n comment *) x=>x",
+            [
+              L.Fn     {line=1,col=1},
+              L.Id    ({line=2,col=13}, "x"),
+              L.DArrow {line=2,col=14},
+              L.Id    ({line=2,col=16}, "x")
+           ])
+
           ,("fn x => x",
             [
               L.Fn     {line=1,col=1},

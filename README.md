@@ -28,7 +28,7 @@ It should build under MLton and other Standard ML compilers, as it doesn't use a
 
 ### lexer
 
-- comments
+- nested comments
 
 ### parser
 

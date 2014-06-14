@@ -12,6 +12,8 @@ open Top
 fun fst (a, _) = a
 fun snd (_, b) = b
 
+exception LexicalError of string
+
 (*
  * Extract an integer literal from a positional stream
  *)
@@ -31,7 +33,45 @@ fun getInt rdr s =
 (*
  * Drop leading whitespace from a positional stream
  *)
-fun skipWS rdr = Reader.dropWhile rdr (Char.isSpace o fst)
+fun skipWS (rdr : (char * Pos.t, 'a) Reader.t) : 'a -> 'a =
+    Reader.dropWhile rdr (Char.isSpace o fst)
+
+(* Check is a stream starts with a comment *)
+fun isComment rdr s =
+    case Reader.take rdr 2 s of
+        SOME ([(#"(", _), (#"*", _)], s') => true
+      | _ => false
+
+fun isSpace rdr s =
+    case rdr s of
+        SOME ((x, _), s) => Char.isSpace x
+      | _ => false
+
+(*
+ * Drop a comment from a positional stream
+ *)
+fun skipComments (rdr : (char * Pos.t, 'a) Reader.t) (s : 'a) : 'a =
+    let
+       (* skip to end of comment block *)
+       fun skip rdr s =
+           case Reader.take rdr 2 s of
+               SOME ([(#"*", _), (#")", _)], s') => s'
+             | _ => case rdr s of
+                        SOME (_, s') => skip rdr s'
+                      | NONE => raise (LexicalError "unmatched comment block")
+    in
+       if isComment rdr s then
+          skip rdr (Reader.drop rdr 2 s)
+       else s
+    end
+
+(* Drop comments and whitespace until *)
+fun trim (rdr : (char * Pos.t, 'a) Reader.t) (s : 'a) : 'a =
+    if isComment rdr s then
+       trim rdr (skipComments rdr s)
+    else if isSpace rdr s then
+       trim rdr (skipWS rdr s)
+    else s
 
 (*
  * Extract a keyword or identifier as a string from a positional stream
@@ -61,8 +101,6 @@ fun getWord rdr s =
            end
     end
 
-exception LexicalError of string
-
 (* TODO: needs to be a Set build by previous infix declarations *)
 fun isInfix "+" = true
   | isInfix "-" = true
@@ -73,7 +111,7 @@ fun isInfix "+" = true
 fun make (rdr : (char * Pos.t, 'a) Reader.t) : (Pos.t Token.t, 'a) Reader.t =
     fn t =>
        let
-          val s = (skipWS rdr t)
+          val s = trim rdr t
        in
           case rdr s of
 

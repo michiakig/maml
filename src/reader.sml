@@ -70,4 +70,26 @@ fun dropWhile rdr p s =
        dropWhile' s
     end
 
+fun take (rdr : ('a,'b) t) (n : int) (s : 'b) : ('a list * 'b) option =
+    let
+       fun take' 0 acc s = SOME (rev acc, s)
+         | take' n acc s =
+           case rdr s of
+               SOME (x, s') => take' (n-1) (x::acc) s'
+             | NONE => NONE
+    in
+       take' n [] s
+    end
+
+fun drop (rdr : ('a,'b) t) (n : int) (s : 'b) : 'b =
+    let
+       fun drop' 0 s = s
+         | drop' n s =
+           case rdr s of
+               SOME (_, s') => drop' (n-1) s'
+             | NONE => s
+    in
+       drop' n s
+    end
+
 end
