@@ -24,15 +24,16 @@ Use `make test` to compile and run the tests; see the Makefile for more targets.
 
 It should build under MLton and other Standard ML compilers, as it doesn't use any language extensions, but this still needs to be tested and MLton `.mlb` files need to be written to make this easier.
 
-## todos
+## TODO
 
 ### lexer
 
-- Comments
+- comments
 
 ### parser
 
-- type annotations on any expression
+- Parser.parse, parseExpr, parseDecl, parseType should accept streams and readers, not lists
+- type annotations
 - Infix of 'a * string * 'a t * 'a t
                 ^^^^^^ Infix should take a string for the op, not a binop
 - return value of type `(SyntaxError, AST) either`

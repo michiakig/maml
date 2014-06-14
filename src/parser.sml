@@ -1,7 +1,6 @@
 (* Parser for a restricted subset of the ML grammar, adapted from the
  * Definition of Standard ML, appendix B fig 20 p63 *)
 structure Parser : sig
-   (* TODO: these functions should accept streams and readers, not lists *)
    val parse :     'a Token.t list -> ('a, 'a) AST.Pgm.t
    val parseDecl : 'a Token.t list -> ('a, 'a) AST.Decl.t
    val parseExpr : 'a Token.t list -> 'a AST.Expr.t
