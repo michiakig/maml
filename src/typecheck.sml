@@ -1,7 +1,7 @@
 structure Typecheck =
 struct
 
-open Maml
+open Top
 
 structure T = Type
 structure E = AST.Expr
@@ -28,6 +28,26 @@ fun getBoundVarsInPat (AST.Pattern.Complex.Var x) = [x]
   | getBoundVarsInPat (AST.Pattern.Complex.Tuple ps) = List.concat (map getBoundVarsInPat ps)
   | getBoundVarsInPat (AST.Pattern.Complex.Ctor (_, NONE)) = []
   | getBoundVarsInPat (AST.Pattern.Complex.Ctor (_, SOME p)) = getBoundVarsInPat p
+
+fun mapFst f (a, b) = (f a, b)
+fun mapSnd f (a, b) = (a, f b)
+
+fun substituteVar x e b =
+    let
+       val sub = substituteVar x e
+    in
+       case b of
+           E.Num _ => b
+         | E.Bool _ => b
+         | E.Infix (p, bin, e1, e2)     => E.Infix (p, bin, sub e1, sub e2)
+         | E.App (p, e1, e2)            => E.App (p, sub e1, sub e2)
+         | E.If (p, e1, e2, e3)         => E.If (p, sub e1, sub e2, sub e3)
+         | E.Fn (p1, p2, x', body)      => if x = x' then body else E.Fn (p1, p2, x', sub body)
+         | E.Id (p, x')                 => if x = x' then e else b
+         | E.Tuple (p, es)              => E.Tuple (p, map sub es)
+         | E.Case (p, e', cs)           => E.Case (p, sub e', map (mapSnd sub) cs)
+         | E.Let (p1, p2, x', e', body) => if x = x' then b else E.Let (p1, p2, x', sub e', sub body)
+    end
 
 (*
  * Given an expression, assign each sub expression type vars unless it's an ident bound in the existing gamma
@@ -62,13 +82,7 @@ fun assignTypeVars (env : T.t Env.map, e : AST.pos E.t) : typed E.t =
                             end)
                         cs)
 
-         | E.Let (boundp, selfp, x, e, body) =>
-           let
-              val boundVar = gensym ()
-              val env' = Env.insert (env, x, T.Var boundVar)
-           in
-              E.Let ({pos = boundp, typ = T.Var boundVar}, makeTyped selfp, x, assignTypeVars (env', e), assignTypeVars (env', body))
-           end
+         | E.Let (boundp, selfp, x, e, body) => assignTypeVars (env, substituteVar x e body)
 
 fun gettyp (e : typed E.t) = #typ (E.getInfo e)
 
@@ -160,7 +174,7 @@ val rec genCon : (T.t Env.map * typed E.t * Constraint.Set.set) -> Constraint.Se
                Constraint.Set.add (constrs'', {lhs = tvop, rhs = T.Arrow (tvarg, typ)})
         end
 
-      | E.Let _ => raise CompilerBug "(Typecheck.genCon) not implemented yet: let"
+      | E.Let _ => raise CompilerBug "(Typecheck.genCon) at this stage, let should have been de-sugared"
 
 fun prettyPrintConstraint ({lhs, rhs} : Constraint.t, env, ast) : string =
     let
@@ -330,7 +344,7 @@ fun applySubToAST (e : typed E.t, sub : T.t StringMap.map) =
            E.Infix ({typ = getType (tv, sub), pos = pos}, oper, applySubToAST (e1, sub), applySubToAST (e2, sub))
          | E.Infix (typed, oper, e1, e2) => E.Infix (typed, oper, applySubToAST (e1, sub), applySubToAST (e2, sub))
 
-         | E.Let _ => raise CompilerBug "(Typecheck.applySubToAst) not implemented yet: let"
+         | E.Let _ => raise CompilerBug "(Typecheck.applySubToAst) at this stage, let should have been de-sugared"
     end
 
 local
