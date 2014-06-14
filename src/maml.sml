@@ -1,5 +1,11 @@
-(* Top-level module which will eventually have an entry-point of some kind
- * Right now just has a few things used everywhere, should be safe to `open` *)
+(* Main entry-point for the compiler. *)
 structure Maml = struct
-   exception CompilerBug of string
+   val fromFile : string -> TextIO.StreamIO.instream =
+       TextIO.getInstream o TextIO.openIn
+
+   val rdr        = Pos.reader Reader.streamIO
+   fun tokenize s = Reader.consume (Lexer.make rdr) (Pos.start s)
+   fun parse s    = Parser.parse (tokenize s)
+
+   fun main file = Typecheck.inferPgm (parse (fromFile file))
 end

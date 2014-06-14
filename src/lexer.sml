@@ -7,7 +7,7 @@ end
 structure Lexer : LEXER =
 struct
 
-open Maml
+open Top
 
 fun fst (a, _) = a
 fun snd (_, b) = b

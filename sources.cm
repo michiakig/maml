@@ -17,6 +17,7 @@ Library
     structure Pos
 is
     src/maml.sml
+    src/top.sml
 
     src/show.sml
 
