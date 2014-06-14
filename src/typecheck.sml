@@ -1,7 +1,7 @@
 structure Typecheck =
 struct
 
-open Maml
+open Top
 
 structure T = Type
 structure E = AST.Expr
