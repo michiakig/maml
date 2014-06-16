@@ -1,0 +1,25 @@
+Library
+    structure Main
+
+    structure Token
+    structure Lexer
+
+    structure Reader
+    structure Pos
+is
+    src/top.sml
+
+    src/show.sml
+    src/reader.sml
+    src/position.sml
+
+    src/token.sml
+    src/lexer.sml
+
+    tests/legacy.sml
+    tests/lexer.sml
+    tests/main.sml
+
+    $/basis.cm
+    $/smlnj-lib.cm
+    $QCHECK/qcheck.cm

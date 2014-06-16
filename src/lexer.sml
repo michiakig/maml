@@ -1,6 +1,6 @@
 signature LEXER =
 sig
-   val make : (char * Pos.t, 'a) Reader.t -> (Pos.t Token.t, 'a) Reader.t
+   val make : (char * Pos.t, 'a) Reader.t -> (Token.t * Pos.t, 'a) Reader.t
    exception LexicalError of string
 end
 
@@ -8,6 +8,7 @@ structure Lexer : LEXER =
 struct
 
 open Top
+structure T = Token
 
 fun fst (a, _) = a
 fun snd (_, b) = b
@@ -108,7 +109,7 @@ fun isInfix "+" = true
   | isInfix "/" = true
   | isInfix _ = false
 
-fun make (rdr : (char * Pos.t, 'a) Reader.t) : (Pos.t Token.t, 'a) Reader.t =
+fun make (rdr : (char * Pos.t, 'a) Reader.t) : (T.t * Pos.t, 'a) Reader.t =
     fn t =>
        let
           val s = trim rdr t
@@ -118,49 +119,51 @@ fun make (rdr : (char * Pos.t, 'a) Reader.t) : (Pos.t Token.t, 'a) Reader.t =
               NONE => NONE
 
             (* misc. punctuation *)
-            | SOME ((#"(", p), s') => SOME (Token.LParen p, s')
-            | SOME ((#")", p), s') => SOME (Token.RParen p, s')
-            | SOME ((#"|", p), s') => SOME (Token.Bar p, s')
-            | SOME ((#",", p), s') => SOME (Token.Comma p, s')
+            | SOME ((#"(", p), s') => SOME ((T.LParen, p), s')
+            | SOME ((#")", p), s') => SOME ((T.RParen, p), s')
+            | SOME ((#"|", p), s') => SOME ((T.Bar,    p), s')
+            | SOME ((#",", p), s') => SOME ((T.Comma,  p), s')
 
             (* type variables *)
             | SOME ((#"'", p), s') =>
               (case getWord rdr s' of
-                   (SOME ("", _), _) => raise CompilerBug "(Lexer.make) getWord returned empty string"
-                 | (NONE, _) => raise LexicalError "Expected type variable after apostrophe"
-                 | (SOME (v, _), s'') => SOME (Token.TypeVar (p, v), s''))
+                   (SOME ("", _), _)  => raise CompilerBug "(Lexer.make) getWord returned empty string"
+                 | (NONE, _)          => raise LexicalError "Expected type variable after apostrophe"
+                 | (SOME (v, _), s'') => SOME ((T.TypeVar v, p), s''))
 
             (* integer literals *)
             | SOME ((x, _), s') =>
               if Char.isDigit x then
                  case getInt rdr s of
                      (NONE, _) => raise CompilerBug "(Lexer.make) getInt returned NONE, but stream starts with a digit"
-                   | (SOME (n, p), s'') => SOME (Token.Num (p, n), s'')
+                   | (SOME (n, p), s'') => SOME ((T.Num n, p), s'')
               else (* all other tokens *)
                  case getWord rdr s of
-                     (SOME ("if", p), s'')       => SOME (Token.If p, s'')
-                   | (SOME ("then", p), s'')     => SOME (Token.Then p, s'')
-                   | (SOME ("else", p), s'')     => SOME (Token.Else p, s'')
-                   | (SOME ("true", p), s'')     => SOME (Token.Bool (p, true), s'')
-                   | (SOME ("false", p), s'')    => SOME (Token.Bool (p, false), s'')
-                   | (SOME ("fn", p), s'')       => SOME (Token.Fn p, s'')
-                   | (SOME ("let", p), s'')      => SOME (Token.Let p, s'')
-                   | (SOME ("in", p), s'')       => SOME (Token.In p, s'')
-                   | (SOME ("end", p), s'')      => SOME (Token.End p, s'')
-                   | (SOME ("case", p), s'')     => SOME (Token.Case p, s'')
-                   | (SOME ("datatype", p), s'') => SOME (Token.Datatype p, s'')
-                   | (SOME ("of", p), s'')       => SOME (Token.Of p, s'')
-                   | (SOME ("val", p), s'')      => SOME (Token.Val p, s'')
-                   | (SOME ("=", p), s'')        => SOME (Token.Eqls p, s'')
-                   | (SOME ("=>", p), s'')       => SOME (Token.DArrow p, s'')
-                   | (SOME ("->", p), s'')       => SOME (Token.TArrow p, s'')
-                   | (SOME ("", _), _)           => raise CompilerBug ("(Lexer.make) getWord returned empty string, but stream starts with #\"" ^ Char.toString x ^ "\"")
-                   | (NONE, _)                   => raise LexicalError "Error lexing"
+                     (SOME ("if",       p), s'') => SOME ((T.If,         p), s'')
+                   | (SOME ("then",     p), s'') => SOME ((T.Then,       p), s'')
+                   | (SOME ("else",     p), s'') => SOME ((T.Else,       p), s'')
+                   | (SOME ("true",     p), s'') => SOME ((T.Bool true,  p), s'')
+                   | (SOME ("false",    p), s'') => SOME ((T.Bool false, p), s'')
+                   | (SOME ("fn",       p), s'') => SOME ((T.Fn,         p), s'')
+                   | (SOME ("let",      p), s'') => SOME ((T.Let,        p), s'')
+                   | (SOME ("in",       p), s'') => SOME ((T.In,         p), s'')
+                   | (SOME ("end",      p), s'') => SOME ((T.End,        p), s'')
+                   | (SOME ("case",     p), s'') => SOME ((T.Case,       p), s'')
+                   | (SOME ("datatype", p), s'') => SOME ((T.Datatype,   p), s'')
+                   | (SOME ("of",       p), s'') => SOME ((T.Of,         p), s'')
+                   | (SOME ("val",      p), s'') => SOME ((T.Val,        p), s'')
+                   | (SOME ("=",        p), s'') => SOME ((T.Eqls,       p), s'')
+                   | (SOME ("=>",       p), s'') => SOME ((T.DArrow,     p), s'')
+                   | (SOME ("->",       p), s'') => SOME ((T.TArrow,     p), s'')
+
+                   | (SOME ("", _), _) => raise CompilerBug ("(Lexer.make) getWord returned empty string," ^
+                                                             "but stream starts with #\"" ^ Char.toString x ^ "\"")
+                   | (NONE, _) => raise LexicalError "Error lexing"
                    | (SOME (id, p), s'') =>
                      if Char.isUpper (String.sub (id, 0)) then
-                        SOME (Token.Ctor (p, id), s'')
+                        SOME ((T.Ctor id, p), s'')
                      else if isInfix id then
-                        SOME (Token.Infix (p, id), s'')
-                     else SOME (Token.Id (p, id), s'')
+                        SOME ((T.Infix id, p), s'')
+                     else SOME ((T.Id id, p), s'')
        end
 end

@@ -1,108 +1,84 @@
 structure Token =
 struct
 
-datatype 'a t = Num of 'a * int
-              | Id of 'a * string
-              | Infix of 'a * string
-              | Ctor of 'a * string
-              | Bool of 'a * bool
-              | LParen of 'a
-              | RParen of 'a
-              | If of 'a
-              | Then of 'a
-              | Else of 'a
-              | Fn of 'a
-              | DArrow of 'a
-              | Let of 'a
-              | End of 'a
-              | Eqls of 'a
-              | In of 'a
-              | Case of 'a
-              | Bar of 'a
+datatype t = Num   of int
+           | Id    of string
+           | Infix of string
+           | Ctor  of string
+           | Bool  of bool
+           | LParen
+           | RParen
+           | If
+           | Then
+           | Else
+           | Fn
+           | DArrow
+           | Let
+           | End
+           | Eqls
+           | In
+           | Case
+           | Bar
 
-              | Datatype of 'a
-              | Of of 'a
-              | Val of 'a
-              | TypeVar of 'a * string
-              | TArrow of 'a
-              | Comma of 'a
+           | Datatype
+           | Of
+           | Val
+           | TypeVar of string
+           | TArrow
+           | Comma
 
-fun show (Num (_, n)) = "Num " ^ Int.toString n
-  | show (Bool (_, b)) = "Bool " ^ Bool.toString b
-  | show (Id (_, s)) = "Id " ^ s
-  | show (Infix (_, s)) = "Infix " ^ s
-  | show (Ctor (_, s)) = "Ctor " ^ s
-  | show (LParen _) = "LParen"
-  | show (RParen _) = "RParen"
-  | show (If _) = "If"
-  | show (Else _) = "Else"
-  | show (Then _) = "Then"
-  | show (Fn _) = "Fn"
-  | show (DArrow _) = "DArrow"
-  | show (Let _) = "Let"
-  | show (End _) = "End"
-  | show (Eqls _) = "Eqls"
-  | show (In _) = "In"
-  | show (Case _) = "Case"
-  | show (Bar _) = "Bar"
+fun show (Num n)      = "Num "   ^ Int.toString n
+  | show (Bool b)     = "Bool "  ^ Bool.toString b
+  | show (Id s)       = "Id "    ^ s
+  | show (Infix s)    = "Infix " ^ s
+  | show (Ctor s)     = "Ctor "  ^ s
+  | show LParen       = "LParen"
+  | show RParen       = "RParen"
+  | show If           = "If"
+  | show Else         = "Else"
+  | show Then         = "Then"
+  | show Fn           = "Fn"
+  | show DArrow       = "DArrow"
+  | show Let          = "Let"
+  | show End          = "End"
+  | show Eqls         = "Eqls"
+  | show In           = "In"
+  | show Case         = "Case"
+  | show Bar          = "Bar"
 
-  | show (Datatype _) = "Datatype"
-  | show (Of _) = "Of"
-  | show (Val _) = "Val"
-  | show (TypeVar (_, tv)) = "TypeVar " ^ tv
-  | show (TArrow _) = "TArrow"
-  | show (Comma _) = "Comma"
+  | show Datatype     = "Datatype"
+  | show Of           = "Of"
+  | show Val          = "Val"
+  | show (TypeVar tv) = "TypeVar " ^ tv
+  | show TArrow       = "TArrow"
+  | show Comma        = "Comma"
 
-fun getInfo (Num (info, _))     = info
-  | getInfo (Bool (info, _))    = info
-  | getInfo (Id (info, _))      = info
-  | getInfo (Infix (info, _))   = info
-  | getInfo (Ctor (info, _))    = info
-  | getInfo (LParen info)       = info
-  | getInfo (RParen info)       = info
-  | getInfo (If info)           = info
-  | getInfo (Else info)         = info
-  | getInfo (Then info)         = info
-  | getInfo (Fn info)           = info
-  | getInfo (DArrow info)       = info
-  | getInfo (Let info)          = info
-  | getInfo (End info)          = info
-  | getInfo (Eqls info)         = info
-  | getInfo (In info)           = info
-  | getInfo (Case info)         = info
-  | getInfo (Bar info)          = info
+fun eq (Num a,     Num b)     = a = b
+  | eq (Bool a,    Bool b)    = a = b
+  | eq (Id a,      Id b)      = a = b
+  | eq (Infix a,   Infix b)   = a = b
+  | eq (Ctor a,    Ctor b)    = a = b
+  | eq (TypeVar a, TypeVar b) = a = b
 
-  | getInfo (Datatype info)     = info
-  | getInfo (Of info)           = info
-  | getInfo (Val info)          = info
-  | getInfo (TypeVar (info, _)) = info
-  | getInfo (TArrow info)       = info
-  | getInfo (Comma info)        = info
+  | eq (LParen,    LParen)    = true
+  | eq (RParen,    RParen)    = true
+  | eq (If,        If)        = true
+  | eq (Else,      Else)      = true
+  | eq (Then,      Then)      = true
+  | eq (Fn,        Fn)        = true
+  | eq (DArrow,    DArrow)    = true
+  | eq (Let,       Let)       = true
+  | eq (End,       End)       = true
+  | eq (Eqls,      Eqls_)     = true
+  | eq (In,        In)        = true
+  | eq (Case,      Case)      = true
+  | eq (Bar,       Bar)       = true
+  | eq (Datatype,  Datatype)  = true
+  | eq (Of,        Of)        = true
+  | eq (Val,       Val)       = true
+  | eq (TArrow,    TArrow)    = true
+  | eq (Comma,     Comma)     = true
 
-fun eq (Num _, Num _) = true
-  | eq (Bool _, Bool _) = true
-  | eq (Id (_, a), Id (_, b)) = a = b
-  | eq (Infix (_, a), Infix (_, b)) = a = b
-  | eq (Ctor (_, a), Ctor (_, b)) = a = b
-  | eq (LParen _, LParen _) = true
-  | eq (RParen _, RParen _) = true
-  | eq (If _, If _) = true
-  | eq (Else _, Else _) = true
-  | eq (Then _, Then _) = true
-  | eq (Fn _, Fn _) = true
-  | eq (DArrow _, DArrow _) = true
-  | eq (Let _, Let _) = true
-  | eq (End _, End _) = true
-  | eq (Eqls _, Eqls_) = true
-  | eq (In _, In _) = true
-  | eq (Case _, Case _) = true
-  | eq (Bar _, Bar _) = true
-  | eq (Datatype _, Datatype _) = true
-  | eq (Of _, Of _) = true
-  | eq (Val _, Val _) = true
-  | eq (TypeVar _, TypeVar _) = true
-  | eq (TArrow _, TArrow _) = true
-  | eq (Comma _, Comma _) = true
-  | eq _ = false
+  | eq (_,         _)         = false
 
 end

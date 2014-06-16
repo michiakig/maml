@@ -1,6 +1,6 @@
 signature POSITION =
 sig
-   type t
+   eqtype t
    val new : t
    val line : t -> int
    val col : t -> int
