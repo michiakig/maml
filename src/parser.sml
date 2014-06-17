@@ -1,10 +1,10 @@
 (* Parser for a restricted subset of the ML grammar, adapted from the
  * Definition of Standard ML, appendix B fig 20 p63 *)
 structure Parser : sig
-   val parse :     'a Token.t list -> ('a, 'a) AST.Pgm.t
-   val parseDecl : 'a Token.t list -> ('a, 'a) AST.Decl.t
-   val parseExpr : 'a Token.t list -> 'a AST.Expr.t
-   val parseType : 'a Token.t list -> 'a AST.Type.t
+   val parse :     (Token.t * Pos.t) list -> (Pos.t, Pos.t) AST.Pgm.t
+   val parseDecl : (Token.t * Pos.t) list -> (Pos.t, Pos.t) AST.Decl.t
+   val parseExpr : (Token.t * Pos.t) list -> Pos.t AST.Expr.t
+   val parseType : (Token.t * Pos.t) list -> Pos.t AST.Type.t
    exception SyntaxError of string
 end =
 struct
@@ -19,7 +19,7 @@ struct
           print (msg ^ "(" ^
                  (case rdr s of
                       NONE => ".."
-                    | SOME (t, _) => Token.show t)
+                    | SOME ((t, _), _) => Token.show t)
                  ^ ")\n")
        else ()
 
@@ -27,7 +27,7 @@ struct
        let
           val got = case rdr s of
                         NONE => "unexpected EOF"
-                      | SOME (t, _) => Token.show t
+                      | SOME ((t, _), _) => Token.show t
        in
           raise SyntaxError ("expected " ^ msg ^ ", got " ^ got)
        end
@@ -40,20 +40,20 @@ struct
       datatype assoc = Left | Right
 
       exception NoPrecedence of string
-      fun getPrec (Token.Infix (_, "*")) = (60, fn (pos, AST.Type.Tuple (_, xs), y) => AST.Type.Tuple (pos, xs @ [y]) | (pos, x, y) => AST.Type.Tuple (pos, [x, y]), Left)
-        | getPrec (Token.TArrow _) = (50, AST.Type.Arrow, Right)
-        | getPrec t                = raise NoPrecedence (Token.show t)
+      fun getPrec (Token.Infix "*") = (60, fn (pos, AST.Type.Tuple (_, xs), y) => AST.Type.Tuple (pos, xs @ [y]) | (pos, x, y) => AST.Type.Tuple (pos, [x, y]), Left)
+        | getPrec Token.TArrow      = (50, AST.Type.Arrow, Right)
+        | getPrec t                 = raise NoPrecedence (Token.show t)
 
-      fun isInfix (Token.Infix (_, "*")) = true
-        | isInfix (Token.TArrow _) = true
-        | isInfix _                = false
+      fun isInfix (Token.Infix "*") = true
+        | isInfix Token.TArrow      = true
+        | isInfix _                 = false
 
    in
 
       (*
        * accepts a token reader and returns a reader for type expressions
        *)
-      fun makeTypeReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Type.t, 'b) Reader.t =
+      fun makeTypeReader (rdr : (Token.t * Pos.t, 'b) Reader.t) : (Pos.t AST.Type.t, 'b) Reader.t =
          fn s =>
           let
              (*
@@ -62,10 +62,10 @@ struct
              fun tyseq s acc =
                  (log rdr s "tyseq";
                   case rdr s of
-                      SOME (Token.RParen _, s') => (case rdr s' of
-                                                        SOME (Token.Id (p, c), s'') => SOME (AST.Type.Con (p, c, rev acc), s'')
+                      SOME ((Token.RParen, _), s') => (case rdr s' of
+                                                        SOME ((Token.Id c, p), s'') => SOME (AST.Type.Con (p, c, rev acc), s'')
                                                       |  _                          => expected rdr s' "tycon following tyseq in type expression")
-                    | SOME (Token.Comma _, s') => (case infexp s' 0 of
+                    | SOME ((Token.Comma, _), s')  => (case infexp s' 0 of
                                                        SOME (t, s'') => tyseq s'' (t :: acc)
                                                      | NONE          => expected rdr s' "type expression following comma in tyseq")
                     | _ => expected rdr s "comma or right paren")
@@ -76,16 +76,16 @@ struct
              and atom s =
                  (log rdr s "atom";
                   case rdr s of
-                      SOME (Token.TypeVar v, s') => SOME (AST.Type.Var v, s')
-                    | SOME (Token.LParen p, s') =>
+                      SOME ((Token.TypeVar v, p), s') => SOME (AST.Type.Var (p, v), s')
+                    | SOME ((Token.LParen, p), s') =>
                       (case infexp s' 0 of
                            SOME (ty, s'') =>
                            (case rdr s'' of
-                                SOME (Token.RParen _, s''') => SOME (AST.Type.Paren (p, ty), s''')
-                              | SOME (Token.Comma _, s''')  => tyseq s'' [ty]
-                              | _                           => expected rdr s'' "comma or right paren")
+                                SOME ((Token.RParen, _), s''') => SOME (AST.Type.Paren (p, ty), s''')
+                              | SOME ((Token.Comma,  _), s''') => tyseq s'' [ty]
+                              | _                              => expected rdr s'' "comma or right paren")
                          | NONE => expected rdr s' "type expression after left paren")
-                    | SOME (Token.Id (p, c), s') => SOME (AST.Type.Con (p, c, []), s')
+                    | SOME ((Token.Id c, p), s') => SOME (AST.Type.Con (p, c, []), s')
                     | _                          => expected rdr s "type variable, left paren, or type constructor (ident)")
 
              (*
@@ -97,8 +97,8 @@ struct
                      fun infexp' s prec lhs =
                          (log rdr s "infexp'";
                           case rdr s of
-                              SOME (Token.Id (p, c), s') => (infexp' s' prec (AST.Type.Con (p, c, [lhs])))
-                            | SOME (t, s') =>
+                              SOME ((Token.Id c, p), s') => (infexp' s' prec (AST.Type.Con (p, c, [lhs])))
+                            | SOME ((t, p), s') =>
                               if isInfix t then
                                  let val (prec', ctor, assoc) = getPrec t
                                  in
@@ -107,8 +107,8 @@ struct
                                           val prec'' = case assoc of Left => prec' | Right => prec' - 1
                                        in
                                           case infexp s' prec'' of
-                                              SOME (ty, s'') => infexp' s'' prec (ctor (Token.getInfo t, lhs, ty))
-                                            | _ => expected rdr s' "right hand side in type expression"
+                                              SOME (ty, s'') => infexp' s'' prec (ctor (p, lhs, ty))
+                                            | _              => expected rdr s' "right hand side in type expression"
                                        end
                                     else SOME (lhs, s)
                                  end
@@ -125,28 +125,28 @@ struct
    end
 
 (* check if token is in FIRST(atexp) *)
-fun FIRSTatexp (Token.Id (pos, _))   = true
-  | FIRSTatexp (Token.Num (pos, _))  = true
-  | FIRSTatexp (Token.Bool (pos, _)) = true
-  | FIRSTatexp (Token.Let pos)       = true
-  | FIRSTatexp (Token.LParen pos)    = true
-  | FIRSTatexp _                 = false
+fun FIRSTatexp (Token.Id   _) = true
+  | FIRSTatexp (Token.Num  _) = true
+  | FIRSTatexp (Token.Bool _) = true
+  | FIRSTatexp  Token.Let     = true
+  | FIRSTatexp  Token.LParen  = true
+  | FIRSTatexp  _             = false
 
-fun isBinop (Token.Infix (_, "+")) = true
-  | isBinop (Token.Infix (_, "-")) = true
-  | isBinop (Token.Infix (_, "*")) = true
-  | isBinop (Token.Infix (_, "/")) = true
-  | isBinop _ = false
+fun isBinop (Token.Infix "+") = true
+  | isBinop (Token.Infix "-") = true
+  | isBinop (Token.Infix "*") = true
+  | isBinop (Token.Infix "/") = true
+  | isBinop  _                = false
 
-fun getBinop (Token.Infix (_, oper)) = oper
-  | getBinop _ = raise Match
+fun getBinop (Token.Infix oper) = oper
+  | getBinop  _                 = raise Match
 
 structure Expr = AST.Expr
 
 (*
  * accepts a token reader and returns a reader for expressions
  *)
-fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reader.t =
+fun makeExprReader (rdr : (Token.t * Pos.t, 'b) Reader.t) : (Pos.t AST.Expr.t, 'b) Reader.t =
    fn s =>
     let
        val rest = ref s
@@ -173,117 +173,122 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
        fun getPrec () : int =
            (if has ()
                then (case peek () of
-                         Token.Infix (_, "+") => 1
-                       | Token.Infix (_, "-") => 1
-                       | Token.Infix (_, "*") => 2
-                       | Token.Infix (_, "/") => 2
+                         (Token.Infix "+", _) => 1
+                       | (Token.Infix "-", _) => 1
+                       | (Token.Infix "*", _) => 2
+                       | (Token.Infix "/", _) => 2
                        | _ => 0)
             else 0)
 
-
-       fun expr () : 'a Expr.t =
+       fun expr () : Pos.t Expr.t =
            (log rdr (!rest) "expr";
             case peek () of
-                Token.If pos =>
+                (Token.If, pos) =>
                 (adv ()
                 ; let val e1 = expr ()
                   in case peek () of
-                         Token.Then _ => (adv ()
+                         (Token.Then, _) => (adv ()
                                      ; let val e2 = expr ()
                                        in case peek () of
-                                              Token.Else _ => (adv ()
+                                              (Token.Else, _) => (adv ()
                                                           ; Expr.If (pos, e1, e2, expr ()))
-                                            | t => expected "else" t
+                                            | (t, _) => expected "else" t
                                        end)
-                       | t => expected "then" t
+                       | (t, _) => expected "then" t
                   end)
-              | Token.Fn pos =>
+              | (Token.Fn, pos) =>
                 (adv ()
                 ; case peek () of
-                      Token.Id (pos', x) => (adv ()
+                      (Token.Id x, pos') => (adv ()
                                      ; case peek () of
-                                           Token.DArrow _ => (adv ()
+                                           (Token.DArrow, _) => (adv ()
                                                         (* FIXME: two ids for Fn *)
                                                         ; Expr.Fn (pos', pos, x, expr ()))
-                                         | t => expected "=>" t)
-                    | t => err ("expected formal arg in fn expr, got " ^ Token.show t))
+                                         | (t, _) => expected "=>" t)
+                    | (t, _) => err ("expected formal arg in fn expr, got " ^ Token.show t))
 
-              | Token.Case pos =>
+              | (Token.Case, pos) =>
                 (adv ()
                 ; let val e1 = expr ()
                   in case peek () of
-                         Token.Of _ => (adv ()
+                         (Token.Of, _) => (adv ()
                                      ; Expr.Case (pos, e1, clauses ()))
-                       | t => expected "of" t
+                       | (t, _) => expected "of" t
                   end)
 
               | _ => infexp 0)
 
-       and clauses () : (AST.Pattern.Complex.t * 'a Expr.t) list =
+       and clauses () : (AST.Pattern.Complex.t * Pos.t Expr.t) list =
            (log rdr (!rest) "clauses";
             let
                val pat = pattern ()
             in
                (case peek () of
-                    Token.DArrow _ => (adv (); (pat, expr ()) :: clauses' ())
-                  | t => expected "=>" t)
+                    (Token.DArrow, _) => (adv (); (pat, expr ()) :: clauses' ())
+                  | (t, _) => expected "=>" t)
             end)
 
-       and clauses' () : (AST.Pattern.Complex.t * 'a Expr.t) list =
+       and clauses' () : (AST.Pattern.Complex.t * Pos.t Expr.t) list =
            (log rdr (!rest) "clauses'"
            ; if has ()
                 then case peek () of
-                         Token.Bar _ => (adv () ; clauses ())
+                         (Token.Bar, _) => (adv () ; clauses ())
                        | _ => []
              else [])
 
        and pattern () : AST.Pattern.Complex.t =
            (log rdr (!rest) "pattern"
            ; case peek () of
-                 Token.Id (_, x) => (adv (); AST.Pattern.Complex.Var x)
-               | Token.Ctor (_, c) => (adv ();
+                 (Token.Id   x, _) => (adv (); AST.Pattern.Complex.Var x)
+               | (Token.Ctor c, _) => (adv ();
                                        if has ()
                                           then case peek () of
-                                                   Token.Id _ => AST.Pattern.Complex.Ctor (c, SOME (pattern ()))
-                                                 | Token.LParen _ => AST.Pattern.Complex.Ctor (c, SOME (pattern ()))
-                                                 | _ => AST.Pattern.Complex.Ctor (c, NONE)
+                                                   (Token.Id _,   _) => AST.Pattern.Complex.Ctor (c, SOME (pattern ()))
+                                                 | (Token.LParen, _) => AST.Pattern.Complex.Ctor (c, SOME (pattern ()))
+                                                 |  _                => AST.Pattern.Complex.Ctor (c, NONE)
                                        else AST.Pattern.Complex.Ctor (c, NONE))
-               | Token.LParen _ => (adv ()
+               | (Token.LParen, _) => (adv ()
                                    ; let val p = pattern ()
                                      in
                                         case peek () of
-                                            Token.Comma _ => AST.Pattern.Complex.Tuple (p :: patterns ())
-                                          | Token.RParen _ => (adv (); p)
-                                          | t => expected "comma or ) in pattern" t
+                                            (Token.Comma,  _) => AST.Pattern.Complex.Tuple (p :: patterns ())
+                                          | (Token.RParen, _) => (adv (); p)
+                                          | (t, _) => expected "comma or ) in pattern" t
                                      end)
-               | t => expected "var, tuple, or ctor application in pattern" t)
+               | (t, _) => expected "var, tuple, or ctor application in pattern" t)
 
        and patterns () : AST.Pattern.Complex.t list =
            (log rdr (!rest) "patterns"
            ; if has ()
                 then case peek () of
-                         Token.Comma _ => (adv (); pattern () :: patterns ())
-                       | Token.RParen _ => (adv (); [])
+                         (Token.Comma, _)  => (adv (); pattern () :: patterns ())
+                       | (Token.RParen, _) => (adv (); [])
                        | _ => []
              else [])
 
-       and infexp (prec : int) : 'a Expr.t =
+       and infexp (prec : int) : Pos.t Expr.t =
            (log rdr (!rest) "infexp";
             let
                val lhs = appexp ()
             in
-               if has () andalso isBinop (peek ())
-                  then infexp' (prec, lhs)
+               if has () then
+                  let
+                     val (t, _) = peek ()
+                  in
+                     if isBinop t then
+                        infexp' (prec, lhs)
+                     else lhs
+                  end
                else lhs
             end)
 
-       and infexp' (prec : int, lhs : 'a Expr.t) : 'a Expr.t =
+       and infexp' (prec : int, lhs : Pos.t Expr.t) : Pos.t Expr.t =
            (log rdr (!rest) "infexp'";
             let
                val prec' = getPrec ()
             in
                if prec < prec'
-                  then let val t = next ()
+                  then let val (t, _) = next ()
                            (* TODO: check if t is a binop *)
                            val lhs = Expr.Infix (Expr.getInfo lhs, getBinop t, lhs,
                                               infexp prec')
@@ -292,72 +297,78 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
                else lhs
             end)
 
-       and tuple () : 'a Expr.t list =
+       and tuple () : Pos.t Expr.t list =
            (log rdr (!rest) "tuple";
             case peek () of
-                Token.Comma _ => (adv (); let val e = expr ()
+                (Token.Comma, _) => (adv (); let val e = expr ()
                                           in e :: tuple ()
                                           end)
-              | Token.RParen _ => (adv (); [])
-              | t => expected "comma or )" t)
+              | (Token.RParen, _) => (adv (); [])
+              | (t, _) => expected "comma or )" t)
 
-       and atexp () : 'a Expr.t =
+       and atexp () : Pos.t Expr.t =
            (log rdr (!rest) "atexp";
             case peek () of
-                Token.Let pos =>
+                (Token.Let, pos) =>
                 (adv ()
                 ; case peek () of
-                      Token.Val _ =>
+                      (Token.Val, _) =>
                       (adv ()
                       ; case peek () of
-                            Token.Id (pos', x) =>
+                            (Token.Id x, pos') =>
                             (adv ()
                             ; case peek () of
-                                  Token.Eqls _ =>
+                                  (Token.Eqls, _) =>
                                   (adv ()
                                   ; let val bound = expr ()
                                     in case peek () of
-                                           Token.In _ =>
+                                           (Token.In, _) =>
                                            (adv ();
                                             let val body = expr ()
                                             in case peek () of
-                                                   Token.End _ => (adv (); Expr.Let (pos', pos, x, bound, body))
-                                                 | t => expected "end" t
+                                                   (Token.End, _) => (adv (); Expr.Let (pos', pos, x, bound, body))
+                                                 | (t, _) => expected "end" t
                                             end)
-                                         | t => expected "in" t
+                                         | (t, _) => expected "in" t
                                     end)
-                                | t => expected "=" t)
-                          | t => err ("expected bound var in let expr, got " ^ Token.show t))
-                    | t => expected "val" t)
-              | Token.Num (pos, n) => (adv (); Expr.Num (pos, n))
-              | Token.Bool (pos, b) => (adv (); Expr.Bool (pos, b))
-              | Token.Id (pos, s) => (adv (); Expr.Id (pos, s))
+                                | (t, _) => expected "=" t)
+                          | (t, _) => err ("expected bound var in let expr, got " ^ Token.show t))
+                    | (t, _) => expected "val" t)
+              | (Token.Num n, pos) => (adv (); Expr.Num (pos, n))
+              | (Token.Bool b, pos) => (adv (); Expr.Bool (pos, b))
+              | (Token.Id s, pos) => (adv (); Expr.Id (pos, s))
 
               (* in the context of an atexp, parse a Ctor as an Ident. *)
-              | Token.Ctor (pos, s) => (adv (); Expr.Id (pos, s))
+              | (Token.Ctor s, pos) => (adv (); Expr.Id (pos, s))
 
-              | Token.LParen pos =>
+              | (Token.LParen, pos) =>
                 (adv ();
                  let
                     val e = expr ()
                  in
                     case peek () of
-                        Token.RParen _ => (adv (); e)
-                      | Token.Comma _ => Expr.Tuple (pos, e :: tuple ())
-                      | t => expected "comma or )" t
+                        (Token.RParen, _) => (adv (); e)
+                      | (Token.Comma, _) => Expr.Tuple (pos, e :: tuple ())
+                      | (t, _) => expected "comma or )" t
                  end)
-              | t => expected "let, id or constant" t)
+              | (t, _) => expected "let, id or constant" t)
 
        (*
         * lhs is the left hand side of the (potential) application
         *)
-       and appexp' (lhs : 'a Expr.t) : 'a Expr.t =
+       and appexp' (lhs : Pos.t Expr.t) : Pos.t Expr.t =
            (log rdr (!rest) "appexp'";
-            if has () andalso FIRSTatexp (peek ())
-               then appexp' (Expr.App (Expr.getInfo lhs, lhs, atexp ()))
+            if has () then
+               let
+                  val (t, _) = peek ()
+               in
+                  if FIRSTatexp t then
+                     appexp' (Expr.App (Expr.getInfo lhs, lhs, atexp ()))
+                  else lhs
+               end
             else lhs)
 
-       and appexp () : 'a Expr.t =
+       and appexp () : Pos.t Expr.t =
            (log rdr (!rest) "appexp";
             appexp' (atexp ()))
 
@@ -368,7 +379,7 @@ fun makeExprReader (rdr : ('a Token.t, 'b) Reader.t) : ('a AST.Expr.t, 'b) Reade
 (*
  * accepts a token reader and returns a reader for declarations
  *)
-fun makeDeclReader (rdr : ('a Token.t, 'b) Reader.t) : (('a, 'a) AST.Decl.t, 'b) Reader.t =
+fun makeDeclReader (rdr : (Token.t * Pos.t, 'b) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t, 'b) Reader.t =
    fn s =>
     let
        val rest = ref s
@@ -393,103 +404,110 @@ fun makeDeclReader (rdr : ('a Token.t, 'b) Reader.t) : (('a, 'a) AST.Decl.t, 'b)
        fun expected s t = raise SyntaxError ("expected " ^ s ^ ", got " ^ Token.show t)
 
        fun log s =
-           let val t = if has () then Token.show (peek ()) else ".."
+           let
+              val t = if has () then
+                         let
+                            val (t, _) = peek ()
+                         in
+                            Token.show t
+                         end
+                      else ".."
            in if debug
                  then print (s ^ "(" ^ t ^ ")\n")
               else ()
            end
 
-       fun ctor () : string * 'a AST.Type.t option =
+       fun ctor () : string * Pos.t AST.Type.t option =
            (log "ctor";
             case peek () of
-                Token.Ctor (_, name) => (adv ();
+                (Token.Ctor name, _) => (adv ();
                                          if has ()
                                          then
                                             case peek () of
-                                                Token.Of _ => (adv ();
+                                                (Token.Of, _) => (adv ();
                                                                case (makeTypeReader rdr) (!rest) of
                                                                    NONE => raise Empty
                                                                  | SOME (typ, rest') => (rest := rest' ; (name, SOME typ)))
                                               | _ => (name, NONE)
                                          else (name, NONE))
-              | t => expected "ctor in datatype decl" t)
+              | (t, _) => expected "ctor in datatype decl" t)
 
-       and ctors' () : (string * 'a AST.Type.t option) list =
+       and ctors' () : (string * Pos.t AST.Type.t option) list =
            (log "ctors'";
             if has ()
             then
                case peek () of
-                   Token.Bar _ => (adv (); ctor () :: ctors' ())
+                   (Token.Bar, _) => (adv (); ctor () :: ctors' ())
                  | _ => []
             else [] )
 
-       and ctors () : (string * 'a AST.Type.t option) list =
+       and ctors () : (string * Pos.t AST.Type.t option) list =
            (log "ctors";
             ctor () :: ctors' ())
 
        (* parse a datatype declaration *)
-       and data pos : ('a, 'a) AST.Decl.t =
+       and data pos : (Pos.t, Pos.t) AST.Decl.t =
            let
               (* parse the rest of a datatype declaration, after `datatype 'a` or `datatype ('a, 'a)` *)
               fun data' tyvars =
                   case peek () of
-                      Token.Id (_, id) => (adv (); case peek () of
-                                                       Token.Eqls _ => (adv (); AST.Decl.Data (pos, tyvars, id, ctors ()))
-                                                     | t => expected "= in datatype decl" t)
-                    | t => expected "identifier in datatype declaration" t
+                      (Token.Id id, _) => (adv (); case peek () of
+                                                       (Token.Eqls, _) => (adv (); AST.Decl.Data (pos, tyvars, id, ctors ()))
+                                                     | (t, _) => expected "= in datatype decl" t)
+                    | (t, _) => expected "identifier in datatype declaration" t
 
               fun tyvars () =
                   case peek () of
-                      Token.Comma _ => (adv (); case peek () of
-                                                    Token.TypeVar (_, tyvar) => (adv (); tyvar :: tyvars ())
-                                                  | t => expected "type variable in datatype declaration" t)
-                    | Token.RParen _ => (adv (); [])
-                    | t => expected "comma or ) in datatype declaration" t
+                      (Token.Comma, _) => (adv (); case peek () of
+                                                       (Token.TypeVar tyvar, _) => (adv (); tyvar :: tyvars ())
+                                                  | (t, _) => expected "type variable in datatype declaration" t)
+                    | (Token.RParen, _) => (adv (); [])
+                    | (t, _) => expected "comma or ) in datatype declaration" t
            in
               log "data"
             ; case peek () of
-                  Token.TypeVar (_, tyvar) => (adv (); data' [tyvar])
-                | Token.LParen _ => (adv (); case peek () of
-                                                 Token.TypeVar (_, tyvar) => (adv (); data' (tyvar :: tyvars ()))
-                                               | t => expected "type variable in datatype declaration" t)
+                  (Token.TypeVar tyvar, _) => (adv (); data' [tyvar])
+                | (Token.LParen, _) => (adv (); case peek () of
+                                                    (Token.TypeVar tyvar, _) => (adv (); data' (tyvar :: tyvars ()))
+                                               | (t, _) => expected "type variable in datatype declaration" t)
                 | _ => data' []
            end
 
-       and decl () : ('a, 'a) AST.Decl.t =
+       and decl () : (Pos.t, Pos.t) AST.Decl.t =
            (log "decl";
             case peek () of
-                Token.Datatype pos => (adv ()
-                                      ; data pos)
-              | Token.Val pos => (adv ();
+                (Token.Datatype, pos) => (adv ()
+                                         ; data pos)
+              | (Token.Val, pos) => (adv ();
                                   case peek () of
-                                      Token.Id (_, id) => (adv (); case peek () of
-                                                                       Token.Eqls _ => (adv ();
+                                      (Token.Id id, _) => (adv (); case peek () of
+                                                                       (Token.Eqls, _) => (adv ();
                                                                                         case makeExprReader rdr (!rest) of
                                                                                             NONE => raise Empty
                                                                                           | SOME (e, rest') => (rest := rest' ; AST.Decl.Val (pos, id, e)))
-                                                                     | t => expected "= in val decl" t)
-                                    | t => expected "ident in val decl" t)
-              | t => expected "datatype or val in top-level decl" t)
+                                                                     | (t, _) => expected "= in val decl" t)
+                                    | (t, _) => expected "ident in val decl" t)
+              | (t, _) => expected "datatype or val in top-level decl" t)
     in
        SOME (decl (), !rest)
     end
 
-fun parseExpr (toks : 'a Token.t list) : 'a AST.Expr.t =
+fun parseExpr (toks : (Token.t * Pos.t) list) : Pos.t AST.Expr.t =
     case makeExprReader Reader.list toks of
         NONE => raise Empty
       | SOME (ast, _) => ast
 
-fun parseType (toks : 'a Token.t list) : 'a AST.Type.t =
+fun parseType (toks : (Token.t * Pos.t) list) : Pos.t AST.Type.t =
     case makeTypeReader Reader.list toks of
         NONE => raise Empty
       | SOME (ast, _) => ast
 
-fun parseDecl (toks : 'a Token.t list) : ('a, 'a) AST.Decl.t =
+fun parseDecl (toks : (Token.t * Pos.t) list) : (Pos.t, Pos.t) AST.Decl.t =
     case makeDeclReader Reader.list toks of
         NONE => raise Empty
       | SOME (ast, _) => ast
 
-fun parse (toks : 'a Token.t list) : ('a, 'a) AST.Pgm.t =
+fun parse (toks : (Token.t * Pos.t) list) : (Pos.t, Pos.t) AST.Pgm.t =
     let
        val parseDecl' = makeDeclReader Reader.list
 
