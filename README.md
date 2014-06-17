@@ -32,7 +32,6 @@ It should build under MLton and other Standard ML compilers, as it doesn't use a
 
 ### parser
 
-- Parser.parse, parseExpr, parseDecl, parseType should accept streams and readers, not lists
 - type annotations
 - Infix of 'a * string * 'a t * 'a t
                 ^^^^^^ Infix should take a string for the op, not a binop

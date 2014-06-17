@@ -92,4 +92,11 @@ fun drop (rdr : ('a,'b) t) (n : int) (s : 'b) : 'b =
        drop' n s
     end
 
+exception Partial
+
+fun partial rdr s =
+    case rdr s of
+        SOME (x, _) => x
+      | NONE        => raise Partial
+
 end

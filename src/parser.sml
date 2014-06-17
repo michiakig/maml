@@ -1,10 +1,10 @@
 (* Parser for a restricted subset of the ML grammar, adapted from the
  * Definition of Standard ML, appendix B fig 20 p63 *)
 structure Parser : sig
-   val parse :     (Token.t * Pos.t) list -> (Pos.t, Pos.t) AST.Pgm.t
-   val parseDecl : (Token.t * Pos.t) list -> (Pos.t, Pos.t) AST.Decl.t
-   val parseExpr : (Token.t * Pos.t) list -> Pos.t AST.Expr.t
-   val parseType : (Token.t * Pos.t) list -> Pos.t AST.Type.t
+   val parse    : (Token.t * Pos.t, 'a) Reader.t -> 'a -> (Pos.t, Pos.t) AST.Pgm.t
+   val makeDecl : (Token.t * Pos.t, 'a) Reader.t -> ((Pos.t, Pos.t) AST.Decl.t, 'a) Reader.t
+   val makeExpr : (Token.t * Pos.t, 'a) Reader.t -> (Pos.t AST.Expr.t, 'a) Reader.t
+   val makeType : (Token.t * Pos.t, 'a) Reader.t -> (Pos.t AST.Type.t, 'a) Reader.t
    exception SyntaxError of string
 end =
 struct
@@ -53,7 +53,7 @@ struct
       (*
        * accepts a token reader and returns a reader for type expressions
        *)
-      fun makeTypeReader (rdr : (Token.t * Pos.t, 'b) Reader.t) : (Pos.t AST.Type.t, 'b) Reader.t =
+      fun makeType (rdr : (Token.t * Pos.t, 'b) Reader.t) : (Pos.t AST.Type.t, 'b) Reader.t =
          fn s =>
           let
              (*
@@ -146,7 +146,7 @@ structure Expr = AST.Expr
 (*
  * accepts a token reader and returns a reader for expressions
  *)
-fun makeExprReader (rdr : (Token.t * Pos.t, 'b) Reader.t) : (Pos.t AST.Expr.t, 'b) Reader.t =
+fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Reader.t =
    fn s =>
     let
        val rest = ref s
@@ -379,7 +379,7 @@ fun makeExprReader (rdr : (Token.t * Pos.t, 'b) Reader.t) : (Pos.t AST.Expr.t, '
 (*
  * accepts a token reader and returns a reader for declarations
  *)
-fun makeDeclReader (rdr : (Token.t * Pos.t, 'b) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t, 'b) Reader.t =
+fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t, 'a) Reader.t =
    fn s =>
     let
        val rest = ref s
@@ -425,7 +425,7 @@ fun makeDeclReader (rdr : (Token.t * Pos.t, 'b) Reader.t) : ((Pos.t, Pos.t) AST.
                                          then
                                             case peek () of
                                                 (Token.Of, _) => (adv ();
-                                                               case (makeTypeReader rdr) (!rest) of
+                                                               case (makeType rdr) (!rest) of
                                                                    NONE => raise Empty
                                                                  | SOME (typ, rest') => (rest := rest' ; (name, SOME typ)))
                                               | _ => (name, NONE)
@@ -482,7 +482,7 @@ fun makeDeclReader (rdr : (Token.t * Pos.t, 'b) Reader.t) : ((Pos.t, Pos.t) AST.
                                   case peek () of
                                       (Token.Id id, _) => (adv (); case peek () of
                                                                        (Token.Eqls, _) => (adv ();
-                                                                                        case makeExprReader rdr (!rest) of
+                                                                                        case makeExpr rdr (!rest) of
                                                                                             NONE => raise Empty
                                                                                           | SOME (e, rest') => (rest := rest' ; AST.Decl.Val (pos, id, e)))
                                                                      | (t, _) => expected "= in val decl" t)
@@ -492,31 +492,16 @@ fun makeDeclReader (rdr : (Token.t * Pos.t, 'b) Reader.t) : ((Pos.t, Pos.t) AST.
        SOME (decl (), !rest)
     end
 
-fun parseExpr (toks : (Token.t * Pos.t) list) : Pos.t AST.Expr.t =
-    case makeExprReader Reader.list toks of
-        NONE => raise Empty
-      | SOME (ast, _) => ast
-
-fun parseType (toks : (Token.t * Pos.t) list) : Pos.t AST.Type.t =
-    case makeTypeReader Reader.list toks of
-        NONE => raise Empty
-      | SOME (ast, _) => ast
-
-fun parseDecl (toks : (Token.t * Pos.t) list) : (Pos.t, Pos.t) AST.Decl.t =
-    case makeDeclReader Reader.list toks of
-        NONE => raise Empty
-      | SOME (ast, _) => ast
-
-fun parse (toks : (Token.t * Pos.t) list) : (Pos.t, Pos.t) AST.Pgm.t =
+fun parse (rdr : (Token.t * Pos.t, 'a) Reader.t) (s : 'a) : (Pos.t, Pos.t) AST.Pgm.t =
     let
-       val parseDecl' = makeDeclReader Reader.list
+       val decl = makeDecl rdr
 
-       fun parse' toks =
-           (case parseDecl' toks of
-                NONE => []
-              | SOME (ast, rest) => ast :: parse' rest) handle Empty => []
+       fun parse' s =
+           case decl s of
+               NONE => []
+             | SOME (ast, s') => ast :: parse' s'
     in
-       parse' toks
+       parse' s
     end
 
 end

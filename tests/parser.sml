@@ -5,16 +5,24 @@ structure E = MonoAST.Expr
 structure T = MonoAST.Type
 structure D = MonoAST.Decl
 structure P = AST.Pattern.Complex
+
+(* Partial parsers that blow up on failures instead of returning an option type *)
+val lexer = Lexer.make (Pos.reader Reader.string)
+fun makePartial makeParser s = Reader.partial (makeParser lexer) (Pos.start s)
+fun parseDecl s = makePartial Parser.makeDecl s
+fun parseExpr s = makePartial Parser.makeExpr s
+fun parseType s = makePartial Parser.makeType s
+
 fun test _ =
     let
        fun decl name = check (List.getItem, SOME (Show.pair (fn x => x, D.show)))
-                             (name, pred (fn (s, ast) => (MonoAST.Decl.make (hd (Parser.parse (Legacy.lexStr s)))) = ast))
+                             (name, pred (fn (s, ast) => (MonoAST.Decl.make (parseDecl s)) = ast))
 
        fun expr name = check (List.getItem, SOME (Show.pair (fn x => x, E.show)))
-                             (name, pred (fn (s, ast) => (MonoAST.Expr.make (Parser.parseExpr (Legacy.lexStr s))) = ast))
+                             (name, pred (fn (s, ast) => (MonoAST.Expr.make (parseExpr s)) = ast))
 
-       fun typ name = check (List.getItem, SOME (Show.pair (fn x => x, T.show)))
-                            (name, pred (fn (s, ast) => (MonoAST.Type.make (Parser.parseType (Legacy.lexStr s))) = ast))
+       fun type' name = check (List.getItem, SOME (Show.pair (fn x => x, T.show)))
+                              (name, pred (fn (s, ast) => (MonoAST.Type.make (parseType s)) = ast))
     in
        (
          expr "parser/exprs"
@@ -86,7 +94,7 @@ fun test _ =
                         ,(P.Ctor ("Cons", SOME (P.Tuple [P.Var "y", P.Var "ys"])), E.Num 2)]))
            ]
 
-       ; typ "parser/type"
+       ; type' "parser/type"
              [
                ("'a", T.Var "a")
               ,("'a list tree", T.Con ("tree", [T.Con ("list", [T.Var "a"])]))
