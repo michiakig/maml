@@ -5,6 +5,7 @@ structure E = MonoAST.Expr
 structure T = MonoAST.Type
 structure D = MonoAST.Decl
 structure P = AST.Pattern.Complex
+structure Pgm = MonoAST.Pgm
 
 (* Partial parsers that blow up on failures instead of returning an option type *)
 val lexer = Lexer.make (Pos.reader Reader.string)
@@ -15,6 +16,9 @@ fun parseType s = makePartial Parser.makeType s
 
 fun test _ =
     let
+       fun pgm name = check (List.getItem, SOME (Show.pair (fn x => x, Pgm.show)))
+                            (name, pred (fn (s, ast) => (Pgm.make (Parser.parse lexer (Pos.start s))) = ast))
+
        fun decl name = check (List.getItem, SOME (Show.pair (fn x => x, D.show)))
                              (name, pred (fn (s, ast) => (MonoAST.Decl.make (parseDecl s)) = ast))
 
@@ -200,6 +204,13 @@ fun test _ =
             ,("datatype ('a, 'b) either = Left of 'a | Right of 'b",
               D.Data (["a", "b"], "either", [("Left", SOME (T.Var "a")), ("Right", SOME (T.Var "b"))]))
            ]
+
+       ; pgm "pgm"
+             [
+               ("val id = fn x => x", [D.Val ("id", E.Fn ("x", E.Id "x"))])
+              ,("datatype foo = Bar", [D.Data ([], "foo", [("Bar", NONE)])])
+              ,("val id = fn x => x\ndatatype foo = Bar", [D.Val ("id", E.Fn ("x", E.Id "x")),D.Data ([], "foo", [("Bar", NONE)])])
+             ]
        )
     end
 

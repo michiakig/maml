@@ -393,25 +393,20 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
                                | SOME (_, s) => s)
 
        fun peek () = case rdr (!rest) of
-                         NONE => raise Empty
-                       | SOME (t, _) => t
+                         SOME (t, _) => SOME t
+                       | NONE        => NONE
 
        fun next () = peek () before adv ()
 
        fun getNext () = if has () then SOME (next ()) else NONE
 
-       fun err s = raise SyntaxError ("err " ^ s)
-       fun expected s t = raise SyntaxError ("expected " ^ s ^ ", got " ^ Token.show t)
+       fun error msg = expected rdr (!rest) msg
 
        fun log s =
            let
-              val t = if has () then
-                         let
-                            val (t, _) = peek ()
-                         in
-                            Token.show t
-                         end
-                      else ".."
+              val t = case peek () of
+                          SOME (t, _) => Token.show t
+                        | NONE        => ".."
            in if debug
                  then print (s ^ "(" ^ t ^ ")\n")
               else ()
@@ -420,26 +415,22 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
        fun ctor () : string * Pos.t AST.Type.t option =
            (log "ctor";
             case peek () of
-                (Token.Ctor name, _) => (adv ();
-                                         if has ()
-                                         then
-                                            case peek () of
-                                                (Token.Of, _) => (adv ();
-                                                               case (makeType rdr) (!rest) of
-                                                                   NONE => raise Empty
-                                                                 | SOME (typ, rest') => (rest := rest' ; (name, SOME typ)))
-                                              | _ => (name, NONE)
-                                         else (name, NONE))
-              | (t, _) => expected "ctor in datatype decl" t)
+                SOME (Token.Ctor name, _) =>
+                (adv ();
+                 case peek () of
+                     SOME (Token.Of, _) =>
+                     (adv ();
+                      case (makeType rdr) (!rest) of
+                          NONE => raise Empty
+                        | SOME (typ, rest') => (rest := rest' ; (name, SOME typ)))
+                   | _ => (name, NONE))
+              | _ => error "ctor in datatype decl")
 
        and ctors' () : (string * Pos.t AST.Type.t option) list =
            (log "ctors'";
-            if has ()
-            then
-               case peek () of
-                   (Token.Bar, _) => (adv (); ctor () :: ctors' ())
-                 | _ => []
-            else [] )
+            case peek () of
+                SOME (Token.Bar, _) => (adv (); ctor () :: ctors' ())
+              | _ => [])
 
        and ctors () : (string * Pos.t AST.Type.t option) list =
            (log "ctors";
@@ -451,45 +442,53 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
               (* parse the rest of a datatype declaration, after `datatype 'a` or `datatype ('a, 'a)` *)
               fun data' tyvars =
                   case peek () of
-                      (Token.Id id, _) => (adv (); case peek () of
-                                                       (Token.Eqls, _) => (adv (); AST.Decl.Data (pos, tyvars, id, ctors ()))
-                                                     | (t, _) => expected "= in datatype decl" t)
-                    | (t, _) => expected "identifier in datatype declaration" t
+                      SOME (Token.Id id, _) =>
+                      (adv ();
+                       case peek () of
+                           SOME (Token.Eqls, _) => (adv (); AST.Decl.Data (pos, tyvars, id, ctors ()))
+                         | _ => error "= in datatype decl")
+                    | _ => error "identifier in datatype declaration"
 
+              (* parse a list of type vars (after open paren): 'a, 'b, ...)` *)
               fun tyvars () =
                   case peek () of
-                      (Token.Comma, _) => (adv (); case peek () of
-                                                       (Token.TypeVar tyvar, _) => (adv (); tyvar :: tyvars ())
-                                                  | (t, _) => expected "type variable in datatype declaration" t)
-                    | (Token.RParen, _) => (adv (); [])
-                    | (t, _) => expected "comma or ) in datatype declaration" t
+                      SOME (Token.Comma, _)  => (adv (); case peek () of
+                                                             SOME (Token.TypeVar tyvar, _) => (adv (); tyvar :: tyvars ())
+                                                           | _ => error "type variable in datatype declaration")
+                    | SOME (Token.RParen, _) => (adv (); [])
+                    | _ => error "comma or ) in datatype declaration"
            in
               log "data"
             ; case peek () of
-                  (Token.TypeVar tyvar, _) => (adv (); data' [tyvar])
-                | (Token.LParen, _) => (adv (); case peek () of
-                                                    (Token.TypeVar tyvar, _) => (adv (); data' (tyvar :: tyvars ()))
-                                               | (t, _) => expected "type variable in datatype declaration" t)
+                  SOME (Token.TypeVar tyvar, _) => (adv (); data' [tyvar])
+                | SOME (Token.LParen, _) =>
+                  (adv (); case peek () of
+                               SOME (Token.TypeVar tyvar, _) => (adv (); data' (tyvar :: tyvars ()))
+                             | _ => error "type variable in datatype declaration")
                 | _ => data' []
            end
 
-       and decl () : (Pos.t, Pos.t) AST.Decl.t =
+       and decl () : ((Pos.t, Pos.t) AST.Decl.t * 'a) option =
            (log "decl";
             case peek () of
-                (Token.Datatype, pos) => (adv ()
-                                         ; data pos)
-              | (Token.Val, pos) => (adv ();
-                                  case peek () of
-                                      (Token.Id id, _) => (adv (); case peek () of
-                                                                       (Token.Eqls, _) => (adv ();
-                                                                                        case makeExpr rdr (!rest) of
-                                                                                            NONE => raise Empty
-                                                                                          | SOME (e, rest') => (rest := rest' ; AST.Decl.Val (pos, id, e)))
-                                                                     | (t, _) => expected "= in val decl" t)
-                                    | (t, _) => expected "ident in val decl" t)
-              | (t, _) => expected "datatype or val in top-level decl" t)
+                SOME (Token.Datatype, pos) => (adv (); SOME (data pos, !rest))
+              | SOME (Token.Val, pos) =>
+                (adv ();
+                 case peek () of
+                     SOME (Token.Id id, _) =>
+                     (adv ();
+                      case peek () of
+                          SOME (Token.Eqls, _) =>
+                          (adv ();
+                           case makeExpr rdr (!rest) of
+                               SOME (e, rest') => (rest := rest'; SOME (AST.Decl.Val (pos, id, e), !rest))
+                             | NONE            => error "expression in val decl")
+                        | _ => error "= in val decl")
+                   | _ => error "identifier after `val`")
+              | SOME _ => error "`datatype` or `val` in top-level decl"
+              | NONE => NONE)
     in
-       SOME (decl (), !rest)
+       decl ()
     end
 
 fun parse (rdr : (Token.t * Pos.t, 'a) Reader.t) (s : 'a) : (Pos.t, Pos.t) AST.Pgm.t =

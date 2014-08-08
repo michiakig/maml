@@ -152,6 +152,7 @@ struct
    structure Pgm =
    struct
       type ('a, 'b) t = ('a, 'b) Decl.t list
+      fun show (p: ('a, 'b) t): string = Show.list Decl.show p
    end
 
 end

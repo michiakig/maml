@@ -103,4 +103,11 @@ struct
       end
    end
 
+   structure Pgm =
+   struct
+      type t = Decl.t list
+      val show: t Show.t = Show.list Decl.show
+      fun make p = map Decl.make p
+   end
+
 end
