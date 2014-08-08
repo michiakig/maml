@@ -1,0 +1,36 @@
+
+* lexer
+
+- nested comments
+
+* parser
+
+** infix
+
+- user-defined infix operators
+- user-defined infix precedence
+- Infix of 'a * string * 'a t * 'a t
+                ^^^^^^ Infix should take a string for the op, not a binop
+
+** general
+
+- refactor entire parser into more [[https://gist.github.com/spacemanaki/05492fd761121f037cd8][imperative-style]]
+- return value of type `(SyntaxError, AST) either`
+
+** types
+
+- type annotations
+- open question: is it possible to remove Type.Paren ?
+
+* type checker
+
+- let expressions (+ let-polymorphism)
+- return value of type `(TypeError, AST) either`
+- annotations
+- typecheck patterns
+
+* desugaring
+
+- integrate the [[https://github.com/spacemanaki/maml/blob/master/src/desugar.sml][current pattern match compiler]] (from the [[http://research.microsoft.com/en-us/um/people/simonpj/papers/slpj-book-1987/][The Implementation of Functional Programming Languages]]) with the rest of the code
+
+* backend, runtime, etc.

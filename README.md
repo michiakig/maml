@@ -24,34 +24,9 @@ Use `make test` to compile and run the tests; see the Makefile for more targets.
 
 It should build under MLton and other Standard ML compilers, as it doesn't use any language extensions, but this still needs to be tested and MLton `.mlb` files need to be written to make this easier.
 
-## TODO
-
-### lexer
-
-- nested comments
-
-### parser
-
-- type annotations
-- Infix of 'a * string * 'a t * 'a t
-                ^^^^^^ Infix should take a string for the op, not a binop
-- return value of type `(SyntaxError, AST) either`
-- open question: is it possible to remove Type.Paren ?
-
-### type checker
-
-- let expressions
-- return value of type `(TypeError, AST) either`
-- annotations
-- patterns
-
-### desugaring
-
-- integrate the [current pattern match compiler](https://github.com/spacemanaki/maml/blob/master/src/desugar.sml) (from the [The Implementation of Functional Programming Languages](http://research.microsoft.com/en-us/um/people/simonpj/papers/slpj-book-1987/) with the rest of the code
-
 ## contributing
 
-Feel free to fork and work on any of the above, however get in touch beforehand as I have WIP branches for several bugs and features.
+Feel free to fork and work on anything in TODO.org
 
 ## disambiguation
 
