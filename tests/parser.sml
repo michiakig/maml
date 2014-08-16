@@ -205,7 +205,7 @@ fun test _ =
               D.Data (["a", "b"], "either", [("Left", SOME (T.Var "a")), ("Right", SOME (T.Var "b"))]))
            ]
 
-       ; pgm "pgm"
+       ; pgm "parser/pgm"
              [
                ("val id = fn x => x", [D.Val ("id", E.Fn ("x", E.Id "x"))])
               ,("datatype foo = Bar", [D.Data ([], "foo", [("Bar", NONE)])])
