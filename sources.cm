@@ -22,7 +22,7 @@ is
     src/show.sml
 
     lib/reader.cm
-    src/position.sml
+    lib/pos.sml
 
     src/type.sml
     src/typecheck.sml

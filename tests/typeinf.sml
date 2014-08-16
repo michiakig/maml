@@ -10,7 +10,7 @@ val lexer = Lexer.make (Pos.reader Reader.string)
 fun parseExpr s = Reader.partial (Parser.makeExpr lexer) s
 
 (* Parse an expression, and return the fully annotated AST *)
-fun infer s = Typecheck.inferExpr (Typecheck.initEnv, parseExpr (Pos.start s))
+fun infer s = Typecheck.inferExpr (Typecheck.initEnv, parseExpr (Pos.stream s))
 
 (* Parse an expression, and return the type of that expression *)
 fun typeOf s =

@@ -7,5 +7,5 @@ structure Maml = struct
    val lexer = Lexer.make rdr
    val parse = Parser.parse lexer
 
-   fun main file = Typecheck.inferPgm (parse (Pos.start (fromFile file)))
+   fun main file = Typecheck.inferPgm (parse (Pos.stream (fromFile file)))
 end

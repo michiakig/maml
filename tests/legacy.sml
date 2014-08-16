@@ -3,5 +3,5 @@
  * reader (lexer) * and a stream *)
 structure Legacy =
 struct
-   fun lexStr s = Reader.consume (Lexer.make (Pos.reader Reader.string)) (Pos.start s)
+   fun lexStr s = Reader.consume (Lexer.make (Pos.reader Reader.string)) (Pos.stream s)
 end

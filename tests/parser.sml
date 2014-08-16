@@ -9,7 +9,7 @@ structure Pgm = MonoAST.Pgm
 
 (* Partial parsers that blow up on failures instead of returning an option type *)
 val lexer = Lexer.make (Pos.reader Reader.string)
-fun makePartial makeParser s = Reader.partial (makeParser lexer) (Pos.start s)
+fun makePartial makeParser s = Reader.partial (makeParser lexer) (Pos.stream s)
 fun parseDecl s = makePartial Parser.makeDecl s
 fun parseExpr s = makePartial Parser.makeExpr s
 fun parseType s = makePartial Parser.makeType s
@@ -17,7 +17,7 @@ fun parseType s = makePartial Parser.makeType s
 fun test _ =
     let
        fun pgm name = check (List.getItem, SOME (Show.pair (fn x => x, Pgm.show)))
-                            (name, pred (fn (s, ast) => (Pgm.make (Parser.parse lexer (Pos.start s))) = ast))
+                            (name, pred (fn (s, ast) => (Pgm.make (Parser.parse lexer (Pos.stream s))) = ast))
 
        fun decl name = check (List.getItem, SOME (Show.pair (fn x => x, D.show)))
                              (name, pred (fn (s, ast) => (MonoAST.Decl.make (parseDecl s)) = ast))
