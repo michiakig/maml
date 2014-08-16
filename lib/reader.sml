@@ -1,7 +1,7 @@
-(*
- * Collection of readers and functions on readers and streams
+(* Reader.sml: collection of readers and functions on readers and streams
  * See http://spacemanaki.com/blog/2013/08/31/Polymorphic-streams-in-ML/
- *)
+ * 16 Aug 2014 v0.2 *)
+
 structure Reader =
 struct
 

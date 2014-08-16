@@ -1,0 +1,6 @@
+Library
+    structure Reader
+is
+    reader.sml
+
+    $/basis.cm

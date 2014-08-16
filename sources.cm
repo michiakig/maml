@@ -21,7 +21,7 @@ is
 
     src/show.sml
 
-    src/reader.sml
+    lib/reader.cm
     src/position.sml
 
     src/type.sml
