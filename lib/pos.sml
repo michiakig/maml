@@ -45,13 +45,13 @@ struct
 
    fun new (col, line) = {col = col, line = line}
 
-   val zero = {col = 1, line = 1}
+   val zero = {col = 0, line = 1}
 
    fun col      {col, line} = col
    fun line     {col, line} = line
 
    fun incrCol  {col, line} = {col = col + 1, line = line}
-   fun incrLine {col, line} = {col = 1,       line = line + 1}
+   fun incrLine {col, line} = {col = 0,       line = line + 1}
 
    fun advCol  ({col, line}, n) = {col = col + n, line = line}
    fun advLine ({col, line}, n) = {col = 0,       line = line + n}
