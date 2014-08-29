@@ -153,10 +153,6 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
     let
        val rest = ref s
 
-       fun has () = case rdr (!rest) of
-                        NONE => false
-                      | SOME _ => true
-
        fun adv () = rest := (case rdr (!rest) of
                                  NONE => raise Empty
                                | SOME (_, s) => s)
