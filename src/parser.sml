@@ -385,35 +385,28 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
     let
        val rest = ref s
 
-       fun has () = case rdr (!rest) of
-                        NONE => false
-                      | SOME _ => true
-
+       (* skip the current token and advance the pointer to the stream *)
        fun adv () = rest := (case rdr (!rest) of
-                                 NONE => raise Empty
+                                 NONE => raise CompilerBug "trying to advance past EOF in decl parser"
                                | SOME (_, s) => s)
 
-       fun peek () = case rdr (!rest) of
-                         SOME (t, _) => SOME t
-                       | NONE        => NONE
-       fun peek' () =
+       (* look ahead one token *)
+       fun peek () =
            case rdr (!rest) of
                SOME ((t, _), _) => SOME t
              | NONE             => NONE
 
-       fun next () = peek () before adv ()
-
-       fun getNext () = if has () then SOME (next ()) else NONE
-
        fun error msg = expected rdr (!rest) msg
 
+       (* extract the position from the token at the head of the stream *)
        fun getPos () =
            case rdr (!rest) of
                SOME ((_, p), _) => p
              | NONE             => raise CompilerBug "getPos called on empty stream"
 
+       (* look ahead one token and compare it to the given token, advancing if they match *)
        fun match t =
-           case peek' () of
+           case peek () of
                SOME t' => if t = t' then
                              adv ()
                           else error (Token.show t')
@@ -422,72 +415,81 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
        fun log s =
            let
               val t = case peek () of
-                          SOME (t, _) => Token.show t
-                        | NONE        => ".."
+                          SOME t => Token.show t
+                        | NONE   => ".."
            in if debug
                  then print (s ^ "(" ^ t ^ ")\n")
               else ()
            end
 
+       (* parse a single constructor, returning its name and (optionally) its argument type *)
        fun ctor () : string * Pos.t AST.Type.t option =
            (log "ctor";
-            case peek () of
-                SOME (Token.Ctor name, _) =>
-                (adv ();
-                 case peek () of
-                     SOME (Token.Of, _) =>
-                     (adv ();
-                      case (makeType rdr) (!rest) of
-                          NONE => raise Empty
-                        | SOME (typ, rest') => (rest := rest' ; (name, SOME typ)))
-                   | _ => (name, NONE))
-              | _ => error "ctor in datatype decl")
+            let
+               val c = case peek () of
+                           SOME (Token.Ctor c) => (adv (); c)
+                         | SOME t              => raise SyntaxError ("expected Ctor, but got " ^ Token.show t)
+                         | NONE                => error "eof"
+               val t = case peek () of
+                           SOME Token.Of =>
+                           ( adv ()
+                           ; case makeType rdr (!rest) of
+                                 SOME (t, rest') => (rest := rest' ; SOME t)
+                               | NONE            => error "type after `Of` in datatype constructor")
+                         | _ => NONE
+            in
+               (c, t)
+            end)
 
-       and ctors' () : (string * Pos.t AST.Type.t option) list =
-           (log "ctors'";
-            case peek () of
-                SOME (Token.Bar, _) => (adv (); ctor () :: ctors' ())
-              | _ => [])
-
+       (* parse one or more constructors, separated by bars *)
        and ctors () : (string * Pos.t AST.Type.t option) list =
-           (log "ctors";
-            ctor () :: ctors' ())
+           let
+              fun ctors' () : (string * Pos.t AST.Type.t option) list =
+                  case peek () of
+                      SOME Token.Bar => (adv (); ctor () :: ctors' ())
+                    | _ => []
+           in
+              (log "ctors"; ctor () :: ctors' ())
+           end
+
+       (* parse a comma-delimited list of type variables between parentheses *)
+       and typeVars () =
+           case peek () of
+               SOME (Token.TypeVar t) => (adv (); [t])
+             | SOME Token.LParen =>
+               let
+                  fun typeVars' () =
+                      case peek () of
+                          SOME (Token.TypeVar t) => (adv (); t :: typeVars' ())
+                        | SOME Token.Comma       => (adv (); typeVars' ())
+                        | _                      => []
+
+                  val _ = match Token.LParen
+                  val ts = typeVars' ()
+                  val _ = match Token.RParen
+               in
+                  ts (* TODO this allows `datatype () foo = ...` *)
+               end
+             | _ => []
+
 
        (* parse a datatype declaration *)
-       and data pos : (Pos.t, Pos.t) AST.Decl.t =
-           let
-              (* parse the rest of a datatype declaration, after `datatype 'a` or `datatype ('a, 'a)` *)
-              fun data' tyvars =
-                  case peek () of
-                      SOME (Token.Id id, _) =>
-                      (adv ();
-                       case peek () of
-                           SOME (Token.Eqls, _) => (adv (); AST.Decl.Data (pos, tyvars, id, ctors ()))
-                         | _ => error "= in datatype decl")
-                    | _ => error "identifier in datatype declaration"
-
-              (* parse a list of type vars (after open paren): 'a, 'b, ...)` *)
-              fun tyvars () =
-                  case peek () of
-                      SOME (Token.Comma, _)  => (adv (); case peek () of
-                                                             SOME (Token.TypeVar tyvar, _) => (adv (); tyvar :: tyvars ())
-                                                           | _ => error "type variable in datatype declaration")
-                    | SOME (Token.RParen, _) => (adv (); [])
-                    | _ => error "comma or ) in datatype declaration"
-           in
-              log "data"
-            ; case peek () of
-                  SOME (Token.TypeVar tyvar, _) => (adv (); data' [tyvar])
-                | SOME (Token.LParen, _) =>
-                  (adv (); case peek () of
-                               SOME (Token.TypeVar tyvar, _) => (adv (); data' (tyvar :: tyvars ()))
-                             | _ => error "type variable in datatype declaration")
-                | _ => data' []
-           end
+       and data () =
+           (log "data";
+            let
+               val p  = getPos ()
+               val _  = match Token.Datatype
+               val ts = typeVars ()
+               val x  = id ()
+               val _  = match Token.Eqls
+               val cs = ctors ()
+            in
+               AST.Decl.Data (p, ts, x, cs)
+            end)
 
        (* attempt to parse an identifier. consume and return it if successful *)
        and id () =
-           case peek' () of
+           case peek () of
                SOME (Token.Id id) => (adv (); id)
              | SOME t             => raise SyntaxError ("expected Id, but got " ^ Token.show t)
              | NONE               => error "eof"
@@ -500,17 +502,17 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
               val _ = match Token.Eqls
            in
               case makeExpr rdr (!rest) of
-                  SOME (e, rest') => (rest := rest'; SOME (AST.Decl.Val (p, x, e), !rest))
+                  SOME (e, rest') => (rest := rest'; AST.Decl.Val (p, x, e))
                 | NONE            => error "expression in val decl"
            end
 
        and decl () : ((Pos.t, Pos.t) AST.Decl.t * 'a) option =
            (log "decl";
             case peek () of
-                SOME (Token.Datatype, pos) => (adv (); SOME (data pos, !rest))
-              | SOME (Token.Val, _) => value ()
-              | SOME _ => error "`datatype` or `val` in top-level decl"
-              | NONE => NONE)
+                SOME Token.Datatype => SOME (data (), !rest)
+              | SOME Token.Val      => SOME (value (), !rest)
+              | SOME _              => error "`datatype` or `val` in top-level decl"
+              | NONE                => NONE)
     in
        decl ()
     end
