@@ -161,14 +161,6 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                                  NONE => raise Empty
                                | SOME (_, s) => s)
 
-       fun peek () = case rdr (!rest) of
-                         NONE => raise Empty
-                       | SOME (t, _) => t
-
-       fun next () = peek () before adv ()
-
-       fun getNext () = if has () then SOME (next ()) else NONE
-
        fun err s = raise SyntaxError ("err " ^ s)
        fun expected s t = raise SyntaxError ("expected " ^ s ^ ", got " ^ Token.show t)
 
@@ -177,27 +169,30 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                SOME ((_, p), _) => p
              | NONE             => raise CompilerBug "getPos called on empty stream"
 
-       fun peek' () =
+       fun peek () =
            case rdr (!rest) of
                SOME ((t, _), _) => SOME t
              | NONE             => NONE
 
+       fun next () =
+           case peek () of
+               SOME t => (adv (); t)
+             | NONE => raise CompilerBug "next () called on empty stream"
+
        fun match t =
-           case peek' () of
+           case peek () of
                SOME t' => if t = t' then
                              adv ()
                           else expected (Token.show t) t'
              | NONE => err "unexpected eof"
 
        fun getPrec () : int =
-           (if has ()
-               then (case peek () of
-                         (Token.Infix "+", _) => 1
-                       | (Token.Infix "-", _) => 1
-                       | (Token.Infix "*", _) => 2
-                       | (Token.Infix "/", _) => 2
-                       | _ => 0)
-            else 0)
+           case peek () of
+               SOME (Token.Infix "+") => 1
+             | SOME (Token.Infix "-") => 1
+             | SOME (Token.Infix "*") => 2
+             | SOME (Token.Infix "/") => 2
+             | _ => 0
 
        fun parseIf () =
            let
@@ -214,7 +209,7 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
 
        (* attempt to parse an identifier. consume and return it if successful *)
        and parseId () =
-           case peek' () of
+           case peek () of
                SOME (Token.Id id) => (adv (); id)
              | SOME t             => raise SyntaxError ("expected Id, but got " ^ Token.show t)
              | NONE               =>  "eof"
@@ -244,7 +239,7 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
 
        and expr () : Pos.t Expr.t =
            (log rdr (!rest) "expr";
-            case peek' () of
+            case peek () of
                 SOME Token.If   => parseIf ()
               | SOME Token.Fn   => parseFn ()
               | SOME Token.Case => parseCase ()
@@ -255,63 +250,57 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
             let
                val pat = pattern ()
             in
-               (case peek () of
-                    (Token.DArrow, _) => (adv (); (pat, expr ()) :: clauses' ())
-                  | (t, _) => expected "=>" t)
+               case peek () of
+                   SOME Token.DArrow => (adv (); (pat, expr ()) :: clauses' ())
+                 | SOME t => expected "=>" t
+                 | NONE   => err "unexpected eof"
             end)
 
        and clauses' () : (AST.Pattern.Complex.t * Pos.t Expr.t) list =
            (log rdr (!rest) "clauses'"
-           ; if has ()
-                then case peek () of
-                         (Token.Bar, _) => (adv () ; clauses ())
-                       | _ => []
-             else [])
+           ; case peek () of
+                 SOME Token.Bar => (adv () ; clauses ())
+               | _ => [])
 
        and pattern () : AST.Pattern.Complex.t =
            (log rdr (!rest) "pattern"
            ; case peek () of
-                 (Token.Id   x, _) => (adv (); AST.Pattern.Complex.Var x)
-               | (Token.Ctor c, _) => (adv ();
-                                       if has ()
-                                          then case peek () of
-                                                   (Token.Id _,   _) => AST.Pattern.Complex.Ctor (c, SOME (pattern ()))
-                                                 | (Token.LParen, _) => AST.Pattern.Complex.Ctor (c, SOME (pattern ()))
-                                                 |  _                => AST.Pattern.Complex.Ctor (c, NONE)
-                                       else AST.Pattern.Complex.Ctor (c, NONE))
-               | (Token.LParen, _) => (adv ()
-                                   ; let val p = pattern ()
-                                     in
-                                        case peek () of
-                                            (Token.Comma,  _) => AST.Pattern.Complex.Tuple (p :: patterns ())
-                                          | (Token.RParen, _) => (adv (); p)
-                                          | (t, _) => expected "comma or ) in pattern" t
-                                     end)
-               | (t, _) => expected "var, tuple, or ctor application in pattern" t)
+                 SOME (Token.Id x) => (adv (); AST.Pattern.Complex.Var x)
+               | SOME (Token.Ctor c) => (adv ();
+                                         case peek () of
+                                                   SOME (Token.Id _)   => AST.Pattern.Complex.Ctor (c, SOME (pattern ()))
+                                                 | SOME (Token.LParen) => AST.Pattern.Complex.Ctor (c, SOME (pattern ()))
+                                                 | SOME _              => AST.Pattern.Complex.Ctor (c, NONE)
+                                                 | NONE                => AST.Pattern.Complex.Ctor (c, NONE))
+               | SOME Token.LParen => (adv ()
+                                      ; let val p = pattern ()
+                                        in
+                                           case peek () of
+                                               SOME Token.Comma => AST.Pattern.Complex.Tuple (p :: patterns ())
+                                             | SOME Token.RParen => (adv (); p)
+                                             | SOME t => expected "comma or ) in pattern" t
+                                             | NONE => err "unexpected eof"
+                                        end)
+               | SOME t => expected "var, tuple, or ctor application in pattern" t
+               | NONE => err "unexpected eof")
 
        and patterns () : AST.Pattern.Complex.t list =
            (log rdr (!rest) "patterns"
-           ; if has ()
-                then case peek () of
-                         (Token.Comma, _)  => (adv (); pattern () :: patterns ())
-                       | (Token.RParen, _) => (adv (); [])
-                       | _ => []
-             else [])
+           ; case peek () of
+                 SOME Token.Comma => (adv (); pattern () :: patterns ())
+               | SOME Token.RParen => (adv (); [])
+               | _ => [])
 
        and infexp (prec : int) : Pos.t Expr.t =
            (log rdr (!rest) "infexp";
             let
                val lhs = appexp ()
             in
-               if has () then
-                  let
-                     val (t, _) = peek ()
-                  in
-                     if isBinop t then
-                        infexp' (prec, lhs)
-                     else lhs
-                  end
-               else lhs
+               case peek () of
+                   SOME t => if isBinop t then
+                                infexp' (prec, lhs)
+                             else lhs
+                | NONE => lhs
             end)
 
        and infexp' (prec : int, lhs : Pos.t Expr.t) : Pos.t Expr.t =
@@ -320,7 +309,7 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                val prec' = getPrec ()
             in
                if prec < prec'
-                  then let val (t, _) = next ()
+                  then let val t = next ()
                            (* TODO: check if t is a binop *)
                            val lhs = Expr.Infix (Expr.getInfo lhs, getBinop t, lhs,
                                               infexp prec')
@@ -332,11 +321,12 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
        and tuple () : Pos.t Expr.t list =
            (log rdr (!rest) "tuple";
             case peek () of
-                (Token.Comma, _) => (adv (); let val e = expr ()
-                                          in e :: tuple ()
-                                          end)
-              | (Token.RParen, _) => (adv (); [])
-              | (t, _) => expected "comma or )" t)
+                SOME Token.Comma => (adv (); let val e = expr ()
+                                             in e :: tuple ()
+                                             end)
+              | SOME Token.RParen => (adv (); [])
+              | SOME t => expected "comma or )" t
+              | NONE => err "unexpected eof")
 
        and parseLet () =
            let
@@ -356,41 +346,39 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
 
        and atexp () : Pos.t Expr.t =
            (log rdr (!rest) "atexp";
-            case peek () of
-                (Token.Let, pos)    => parseLet ()
-              | (Token.Num n, pos)  => (adv (); Expr.Num (pos, n))
-              | (Token.Bool b, pos) => (adv (); Expr.Bool (pos, b))
-              | (Token.Id s, pos)   => (adv (); Expr.Id (pos, s))
+            case rdr (!rest) of
+                SOME ((Token.Let, _), _)    => parseLet ()
+              | SOME ((Token.Num  n, p), _) => (adv (); Expr.Num  (p, n))
+              | SOME ((Token.Bool b, p), _) => (adv (); Expr.Bool (p, b))
+              | SOME ((Token.Id   x, p), _) => (adv (); Expr.Id   (p, x))
 
               (* in the context of an atexp, parse a Ctor as an Ident. *)
-              | (Token.Ctor s, pos) => (adv (); Expr.Id (pos, s))
+              | SOME ((Token.Ctor c, p), _) => (adv (); Expr.Id (p, c))
 
-              | (Token.LParen, pos) =>
+              | SOME ((Token.LParen, p), _) =>
                 (adv ();
                  let
                     val e = expr ()
                  in
                     case peek () of
-                        (Token.RParen, _) => (adv (); e)
-                      | (Token.Comma, _) => Expr.Tuple (pos, e :: tuple ())
-                      | (t, _) => expected "comma or )" t
+                        SOME Token.RParen => (adv (); e)
+                      | SOME Token.Comma  => Expr.Tuple (p, e :: tuple ())
+                      | SOME t => expected "comma or )" t
+                      | NONE => err "unexpected eof"
                  end)
-              | (t, _) => expected "let, id or constant" t)
+              | SOME ((t, _), _) => expected "let, id or constant" t
+              | NONE => err "unexpected eof")
 
        (*
         * lhs is the left hand side of the (potential) application
         *)
        and appexp' (lhs : Pos.t Expr.t) : Pos.t Expr.t =
            (log rdr (!rest) "appexp'";
-            if has () then
-               let
-                  val (t, _) = peek ()
-               in
-                  if FIRSTatexp t then
-                     appexp' (Expr.App (Expr.getInfo lhs, lhs, atexp ()))
-                  else lhs
-               end
-            else lhs)
+            case peek () of
+                SOME t => if FIRSTatexp t then
+                             appexp' (Expr.App (Expr.getInfo lhs, lhs, atexp ()))
+                          else lhs
+              | NONE => lhs)
 
        and appexp () : Pos.t Expr.t =
            (log rdr (!rest) "appexp";
