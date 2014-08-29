@@ -157,8 +157,6 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                                  NONE => raise Empty
                                | SOME (_, s) => s)
 
-       fun err s = raise SyntaxError ("err " ^ s)
-
        fun getPos () =
            case rdr (!rest) of
                SOME ((_, p), _) => p
@@ -179,7 +177,7 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                SOME t' => if t = t' then
                              adv ()
                           else expected rdr (!rest) (Token.show t)
-             | NONE => err "unexpected eof"
+             | NONE => expected rdr (!rest) (Token.show t)
 
        fun getPrec () : int =
            case peek () of
@@ -271,11 +269,9 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                                            case peek () of
                                                SOME Token.Comma => AST.Pattern.Complex.Tuple (p :: patterns ())
                                              | SOME Token.RParen => (adv (); p)
-                                             | SOME t => expected rdr (!rest) "comma or ) in pattern"
-                                             | NONE => err "unexpected eof"
+                                             | _ => expected rdr (!rest) "comma or ) in pattern"
                                         end)
-               | SOME t => expected rdr (!rest) "var, tuple, or ctor application in pattern"
-               | NONE => err "unexpected eof")
+               | _ => expected rdr (!rest) "var, tuple, or ctor application in pattern")
 
        and patterns () : AST.Pattern.Complex.t list =
            (log rdr (!rest) "patterns"
@@ -318,8 +314,7 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                                              in e :: tuple ()
                                              end)
               | SOME Token.RParen => (adv (); [])
-              | SOME t => expected rdr (!rest) "comma or )"
-              | NONE => err "unexpected eof")
+              | _ => expected rdr (!rest) "comma or )")
 
        and parseLet () =
            let
@@ -356,11 +351,9 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                     case peek () of
                         SOME Token.RParen => (adv (); e)
                       | SOME Token.Comma  => Expr.Tuple (p, e :: tuple ())
-                      | SOME t => expected rdr (!rest) "comma or )"
-                      | NONE => err "unexpected eof"
+                      | _ => expected rdr (!rest) "comma or )"
                  end)
-              | SOME ((t, _), _) => expected rdr (!rest) "let, id or constant"
-              | NONE => err "unexpected eof")
+              | _ => expected rdr (!rest) "let, id or constant")
 
        (*
         * lhs is the left hand side of the (potential) application
@@ -400,8 +393,6 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
                SOME ((t, _), _) => SOME t
              | NONE             => NONE
 
-       fun error msg = expected rdr (!rest) msg
-
        (* extract the position from the token at the head of the stream *)
        fun getPos () =
            case rdr (!rest) of
@@ -413,8 +404,8 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
            case peek () of
                SOME t' => if t = t' then
                              adv ()
-                          else error (Token.show t')
-             | NONE    => error "eof"
+                          else expected rdr (!rest) (Token.show t)
+             | NONE    => expected rdr (!rest) (Token.show t)
 
 
        (* parse a single constructor, returning its name and (optionally) its argument type *)
@@ -423,14 +414,13 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
             let
                val c = case peek () of
                            SOME (Token.Ctor c) => (adv (); c)
-                         | SOME t              => raise SyntaxError ("expected Ctor, but got " ^ Token.show t)
-                         | NONE                => error "eof"
+                         | _                   => expected rdr (!rest) "constructor"
                val t = case peek () of
                            SOME Token.Of =>
                            ( adv ()
                            ; case makeType rdr (!rest) of
                                  SOME (t, rest') => (rest := rest' ; SOME t)
-                               | NONE            => error "type after `Of` in datatype constructor")
+                               | NONE            => expected rdr (!rest) "type after `Of` in datatype constructor")
                          | _ => NONE
             in
                (c, t)
@@ -486,8 +476,7 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
        and id () =
            case peek () of
                SOME (Token.Id id) => (adv (); id)
-             | SOME t             => raise SyntaxError ("expected Id, but got " ^ Token.show t)
-             | NONE               => error "eof"
+             | _                  => expected rdr (!rest) "identifier"
 
        and value () =
            let
@@ -498,7 +487,7 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
            in
               case makeExpr rdr (!rest) of
                   SOME (e, rest') => (rest := rest'; AST.Decl.Val (p, x, e))
-                | NONE            => error "expression in val decl"
+                | NONE            => expected rdr (!rest) "expression in value declaration"
            end
 
        and decl () : ((Pos.t, Pos.t) AST.Decl.t * 'a) option =
@@ -506,7 +495,7 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
             case peek () of
                 SOME Token.Datatype => SOME (data (), !rest)
               | SOME Token.Val      => SOME (value (), !rest)
-              | SOME _              => error "`datatype` or `val` in top-level decl"
+              | SOME _              => expected rdr (!rest) "datatype or value declaration"
               | NONE                => NONE)
     in
        decl ()
