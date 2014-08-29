@@ -8,6 +8,7 @@ structure Parser : sig
    exception SyntaxError of string
 end =
 struct
+   open Top
 
    exception SyntaxError of string
 
@@ -395,12 +396,28 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
        fun peek () = case rdr (!rest) of
                          SOME (t, _) => SOME t
                        | NONE        => NONE
+       fun peek' () =
+           case rdr (!rest) of
+               SOME ((t, _), _) => SOME t
+             | NONE             => NONE
 
        fun next () = peek () before adv ()
 
        fun getNext () = if has () then SOME (next ()) else NONE
 
        fun error msg = expected rdr (!rest) msg
+
+       fun getPos () =
+           case rdr (!rest) of
+               SOME ((_, p), _) => p
+             | NONE             => raise CompilerBug "getPos called on empty stream"
+
+       fun match t =
+           case peek' () of
+               SOME t' => if t = t' then
+                             adv ()
+                          else error (Token.show t')
+             | NONE    => error "eof"
 
        fun log s =
            let
@@ -468,23 +485,30 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
                 | _ => data' []
            end
 
+       (* attempt to parse an identifier. consume and return it if successful *)
+       and id () =
+           case peek' () of
+               SOME (Token.Id id) => (adv (); id)
+             | SOME t             => raise SyntaxError ("expected Id, but got " ^ Token.show t)
+             | NONE               => error "eof"
+
+       and value () =
+           let
+              val p = getPos ()
+              val _ = match Token.Val
+              val x = id ()
+              val _ = match Token.Eqls
+           in
+              case makeExpr rdr (!rest) of
+                  SOME (e, rest') => (rest := rest'; SOME (AST.Decl.Val (p, x, e), !rest))
+                | NONE            => error "expression in val decl"
+           end
+
        and decl () : ((Pos.t, Pos.t) AST.Decl.t * 'a) option =
            (log "decl";
             case peek () of
                 SOME (Token.Datatype, pos) => (adv (); SOME (data pos, !rest))
-              | SOME (Token.Val, pos) =>
-                (adv ();
-                 case peek () of
-                     SOME (Token.Id id, _) =>
-                     (adv ();
-                      case peek () of
-                          SOME (Token.Eqls, _) =>
-                          (adv ();
-                           case makeExpr rdr (!rest) of
-                               SOME (e, rest') => (rest := rest'; SOME (AST.Decl.Val (pos, id, e), !rest))
-                             | NONE            => error "expression in val decl")
-                        | _ => error "= in val decl")
-                   | _ => error "identifier after `val`")
+              | SOME (Token.Val, _) => value ()
               | SOME _ => error "`datatype` or `val` in top-level decl"
               | NONE => NONE)
     in
