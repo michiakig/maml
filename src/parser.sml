@@ -158,7 +158,6 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                                | SOME (_, s) => s)
 
        fun err s = raise SyntaxError ("err " ^ s)
-       fun expected s t = raise SyntaxError ("expected " ^ s ^ ", got " ^ Token.show t)
 
        fun getPos () =
            case rdr (!rest) of
@@ -179,7 +178,7 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
            case peek () of
                SOME t' => if t = t' then
                              adv ()
-                          else expected (Token.show t) t'
+                          else expected rdr (!rest) (Token.show t)
              | NONE => err "unexpected eof"
 
        fun getPrec () : int =
@@ -245,11 +244,9 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
            (log rdr (!rest) "clauses";
             let
                val pat = pattern ()
+               val _ = match Token.DArrow
             in
-               case peek () of
-                   SOME Token.DArrow => (adv (); (pat, expr ()) :: clauses' ())
-                 | SOME t => expected "=>" t
-                 | NONE   => err "unexpected eof"
+               (pat, expr ()) :: clauses' ()
             end)
 
        and clauses' () : (AST.Pattern.Complex.t * Pos.t Expr.t) list =
@@ -274,10 +271,10 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                                            case peek () of
                                                SOME Token.Comma => AST.Pattern.Complex.Tuple (p :: patterns ())
                                              | SOME Token.RParen => (adv (); p)
-                                             | SOME t => expected "comma or ) in pattern" t
+                                             | SOME t => expected rdr (!rest) "comma or ) in pattern"
                                              | NONE => err "unexpected eof"
                                         end)
-               | SOME t => expected "var, tuple, or ctor application in pattern" t
+               | SOME t => expected rdr (!rest) "var, tuple, or ctor application in pattern"
                | NONE => err "unexpected eof")
 
        and patterns () : AST.Pattern.Complex.t list =
@@ -321,7 +318,7 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                                              in e :: tuple ()
                                              end)
               | SOME Token.RParen => (adv (); [])
-              | SOME t => expected "comma or )" t
+              | SOME t => expected rdr (!rest) "comma or )"
               | NONE => err "unexpected eof")
 
        and parseLet () =
@@ -359,10 +356,10 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                     case peek () of
                         SOME Token.RParen => (adv (); e)
                       | SOME Token.Comma  => Expr.Tuple (p, e :: tuple ())
-                      | SOME t => expected "comma or )" t
+                      | SOME t => expected rdr (!rest) "comma or )"
                       | NONE => err "unexpected eof"
                  end)
-              | SOME ((t, _), _) => expected "let, id or constant" t
+              | SOME ((t, _), _) => expected rdr (!rest) "let, id or constant"
               | NONE => err "unexpected eof")
 
        (*
