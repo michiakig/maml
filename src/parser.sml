@@ -15,14 +15,15 @@ struct
    (* flip this to print the grammar productions at each step *)
    val debug = false
 
-   fun log rdr s msg =
-       if debug then
-          print (msg ^ "(" ^
-                 (case rdr s of
-                      NONE => ".."
-                    | SOME ((t, _), _) => Token.show t)
-                 ^ ")\n")
-       else ()
+   fun log rdr s tag =
+       let val t = case rdr s of
+                       SOME ((t, _), _) => Token.show t
+                     | NONE => ".."
+       in
+          if debug then
+             print (tag ^ "(" ^ t ^ ")\n")
+          else ()
+       end
 
    fun expected rdr s msg =
        let
@@ -434,19 +435,10 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
                           else error (Token.show t')
              | NONE    => error "eof"
 
-       fun log s =
-           let
-              val t = case peek () of
-                          SOME t => Token.show t
-                        | NONE   => ".."
-           in if debug
-                 then print (s ^ "(" ^ t ^ ")\n")
-              else ()
-           end
 
        (* parse a single constructor, returning its name and (optionally) its argument type *)
        fun ctor () : string * Pos.t AST.Type.t option =
-           (log "ctor";
+           (log rdr (!rest) "ctor";
             let
                val c = case peek () of
                            SOME (Token.Ctor c) => (adv (); c)
@@ -471,7 +463,7 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
                       SOME Token.Bar => (adv (); ctor () :: ctors' ())
                     | _ => []
            in
-              (log "ctors"; ctor () :: ctors' ())
+              (log rdr (!rest) "ctors"; ctor () :: ctors' ())
            end
 
        (* parse a comma-delimited list of type variables between parentheses *)
@@ -497,7 +489,7 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
 
        (* parse a datatype declaration *)
        and data () =
-           (log "data";
+           (log rdr (!rest) "data";
             let
                val p  = getPos ()
                val _  = match Token.Datatype
@@ -529,7 +521,7 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
            end
 
        and decl () : ((Pos.t, Pos.t) AST.Decl.t * 'a) option =
-           (log "decl";
+           (log rdr (!rest) "decl";
             case peek () of
                 SOME Token.Datatype => SOME (data (), !rest)
               | SOME Token.Val      => SOME (value (), !rest)
