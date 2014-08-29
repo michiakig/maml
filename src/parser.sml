@@ -154,13 +154,13 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
        val rest = ref s
 
        fun adv () = rest := (case rdr (!rest) of
-                                 NONE => raise Empty
+                                 NONE => raise CompilerBug "advancing past EOF in makeExpr"
                                | SOME (_, s) => s)
 
        fun getPos () =
            case rdr (!rest) of
                SOME ((_, p), _) => p
-             | NONE             => raise CompilerBug "getPos called on empty stream"
+             | NONE             => raise CompilerBug "getPos called on an empty stream in makeExpr"
 
        fun peek () =
            case rdr (!rest) of
@@ -170,7 +170,7 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
        fun next () =
            case peek () of
                SOME t => (adv (); t)
-             | NONE => raise CompilerBug "next () called on empty stream"
+             | NONE => raise CompilerBug "next called on empty stream in makeExpr"
 
        fun match t =
            case peek () of
@@ -204,8 +204,7 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
        and parseId () =
            case peek () of
                SOME (Token.Id id) => (adv (); id)
-             | SOME t             => raise SyntaxError ("expected Id, but got " ^ Token.show t)
-             | NONE               =>  "eof"
+             | _                  => expected rdr (!rest) "identifer"
 
        and parseFn () =
            let
@@ -384,7 +383,7 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
 
        (* skip the current token and advance the pointer to the stream *)
        fun adv () = rest := (case rdr (!rest) of
-                                 NONE => raise CompilerBug "trying to advance past EOF in decl parser"
+                                 NONE => raise CompilerBug "advancing past EOF in makeDecl"
                                | SOME (_, s) => s)
 
        (* look ahead one token *)
@@ -397,7 +396,7 @@ fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t
        fun getPos () =
            case rdr (!rest) of
                SOME ((_, p), _) => p
-             | NONE             => raise CompilerBug "getPos called on empty stream"
+             | NONE             => raise CompilerBug "getPos called on empty stream in makeDecl"
 
        (* look ahead one token and compare it to the given token, advancing if they match *)
        fun match t =
