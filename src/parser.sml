@@ -171,6 +171,23 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
        fun err s = raise SyntaxError ("err " ^ s)
        fun expected s t = raise SyntaxError ("expected " ^ s ^ ", got " ^ Token.show t)
 
+       fun getPos () =
+           case rdr (!rest) of
+               SOME ((_, p), _) => p
+             | NONE             => raise CompilerBug "getPos called on empty stream"
+
+       fun peek' () =
+           case rdr (!rest) of
+               SOME ((t, _), _) => SOME t
+             | NONE             => NONE
+
+       fun match t =
+           case peek' () of
+               SOME t' => if t = t' then
+                             adv ()
+                          else expected (Token.show t) t'
+             | NONE => err "unexpected eof"
+
        fun getPrec () : int =
            (if has ()
                then (case peek () of
@@ -181,42 +198,55 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                        | _ => 0)
             else 0)
 
-       fun expr () : Pos.t Expr.t =
+       fun parseIf () =
+           let
+              val p  = getPos ()
+              val _  = match Token.If
+              val e1 = expr ()
+              val _ = match Token.Then
+              val e2 = expr ()
+              val _ = match Token.Else
+              val e3 = expr ()
+           in
+              Expr.If (p, e1, e2, e3)
+           end
+
+       (* attempt to parse an identifier. consume and return it if successful *)
+       and parseId () =
+           case peek' () of
+               SOME (Token.Id id) => (adv (); id)
+             | SOME t             => raise SyntaxError ("expected Id, but got " ^ Token.show t)
+             | NONE               =>  "eof"
+
+       and parseFn () =
+           let
+              val p  = getPos ()
+              val _  = match Token.Fn
+              val p' = getPos ()
+              val x  = parseId ()
+              val _  = match Token.DArrow
+              val b  = expr ()
+           in
+              Expr.Fn (p', p, x, b)
+           end
+
+       and parseCase () =
+           let
+              val p  = getPos ()
+              val _  = match Token.Case
+              val e  = expr ()
+              val _  = match Token.Of
+              val cs = clauses ()
+           in
+              Expr.Case (p, e, cs)
+           end
+
+       and expr () : Pos.t Expr.t =
            (log rdr (!rest) "expr";
-            case peek () of
-                (Token.If, pos) =>
-                (adv ()
-                ; let val e1 = expr ()
-                  in case peek () of
-                         (Token.Then, _) => (adv ()
-                                     ; let val e2 = expr ()
-                                       in case peek () of
-                                              (Token.Else, _) => (adv ()
-                                                          ; Expr.If (pos, e1, e2, expr ()))
-                                            | (t, _) => expected "else" t
-                                       end)
-                       | (t, _) => expected "then" t
-                  end)
-              | (Token.Fn, pos) =>
-                (adv ()
-                ; case peek () of
-                      (Token.Id x, pos') => (adv ()
-                                     ; case peek () of
-                                           (Token.DArrow, _) => (adv ()
-                                                        (* FIXME: two ids for Fn *)
-                                                        ; Expr.Fn (pos', pos, x, expr ()))
-                                         | (t, _) => expected "=>" t)
-                    | (t, _) => err ("expected formal arg in fn expr, got " ^ Token.show t))
-
-              | (Token.Case, pos) =>
-                (adv ()
-                ; let val e1 = expr ()
-                  in case peek () of
-                         (Token.Of, _) => (adv ()
-                                     ; Expr.Case (pos, e1, clauses ()))
-                       | (t, _) => expected "of" t
-                  end)
-
+            case peek' () of
+                SOME Token.If   => parseIf ()
+              | SOME Token.Fn   => parseFn ()
+              | SOME Token.Case => parseCase ()
               | _ => infexp 0)
 
        and clauses () : (AST.Pattern.Complex.t * Pos.t Expr.t) list =
@@ -307,37 +337,29 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
               | (Token.RParen, _) => (adv (); [])
               | (t, _) => expected "comma or )" t)
 
+       and parseLet () =
+           let
+              val p  = getPos ()
+              val _  = match Token.Let
+              val _  = match Token.Val
+              val p' = getPos ()
+              val x  = parseId ()
+              val _  = match Token.Eqls
+              val e  = expr ()
+              val _  = match Token.In
+              val b  = expr ()
+              val _  = match Token.End
+           in
+              Expr.Let (p', p, x, e, b)
+           end
+
        and atexp () : Pos.t Expr.t =
            (log rdr (!rest) "atexp";
             case peek () of
-                (Token.Let, pos) =>
-                (adv ()
-                ; case peek () of
-                      (Token.Val, _) =>
-                      (adv ()
-                      ; case peek () of
-                            (Token.Id x, pos') =>
-                            (adv ()
-                            ; case peek () of
-                                  (Token.Eqls, _) =>
-                                  (adv ()
-                                  ; let val bound = expr ()
-                                    in case peek () of
-                                           (Token.In, _) =>
-                                           (adv ();
-                                            let val body = expr ()
-                                            in case peek () of
-                                                   (Token.End, _) => (adv (); Expr.Let (pos', pos, x, bound, body))
-                                                 | (t, _) => expected "end" t
-                                            end)
-                                         | (t, _) => expected "in" t
-                                    end)
-                                | (t, _) => expected "=" t)
-                          | (t, _) => err ("expected bound var in let expr, got " ^ Token.show t))
-                    | (t, _) => expected "val" t)
-              | (Token.Num n, pos) => (adv (); Expr.Num (pos, n))
+                (Token.Let, pos)    => parseLet ()
+              | (Token.Num n, pos)  => (adv (); Expr.Num (pos, n))
               | (Token.Bool b, pos) => (adv (); Expr.Bool (pos, b))
-              | (Token.Id s, pos) => (adv (); Expr.Id (pos, s))
+              | (Token.Id s, pos)   => (adv (); Expr.Id (pos, s))
 
               (* in the context of an atexp, parse a Ctor as an Ident. *)
               | (Token.Ctor s, pos) => (adv (); Expr.Id (pos, s))
