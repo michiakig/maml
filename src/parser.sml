@@ -12,9 +12,10 @@ struct
 
    exception SyntaxError of string
 
-   (* flip this to print the grammar productions at each step *)
+   (* Flag to control logging, mostly grammar productions *)
    val debug = false
 
+   (* Conditionally on the flag above, log the current token with a tag *)
    fun log rdr s tag =
        let val t = case rdr s of
                        SOME ((t, _), _) => Token.show t
@@ -25,6 +26,7 @@ struct
           else ()
        end
 
+   (* !! Raise an exception reporting _user_ errors, i.e. syntax errors *)
    fun expected rdr s msg =
        let
           val got = case rdr s of
@@ -33,6 +35,48 @@ struct
        in
           raise SyntaxError ("expected " ^ msg ^ ", got " ^ got)
        end
+
+   (*
+    * N.b. the procedures below actually operate on _references_ to streams
+    *)
+
+   (* Extracts the current position from a stream
+    * Raises an error at EOF *)
+   fun getPos rdr rest =
+       case rdr (!rest) of
+           SOME ((_, p), _) => p
+         | NONE => raise CompilerBug "getPos called on an empty stream"
+
+   (* Look ahead by one token and return it.
+    * Safe, i.e. will never raise an error *)
+   fun peek rdr rest =
+       case rdr (!rest) of
+           SOME ((t, _), _) => SOME t
+         | NONE             => NONE
+
+   (* !! Advance the stream pointer by one token
+    * Raise an error if the stream is at EOF *)
+   fun adv rdr rest =
+       case rdr (!rest) of
+           SOME (_, s) => rest := s
+         | NONE        => raise CompilerBug "advancing past EOF in makeExpr"
+
+   (* !! Advance the stream pointer by one token, and return that token
+    * Raise an error if the stream is at EOF *)
+   fun next rdr rest =
+       case peek rdr rest of
+           SOME t => (adv rdr rest; t)
+         | NONE   => raise CompilerBug "next called on empty stream"
+
+   (* !! Look ahead by one token, compare to an expected token
+    * If they're equal, advance the stream pointer
+    * Raise an error if the tokens do not match or at EOF *)
+   fun match rdr rest t =
+       case peek rdr rest of
+           SOME t' => if t = t' then
+                         adv rdr rest
+                      else expected rdr (!rest) (Token.show t)
+         | NONE    => expected rdr (!rest) (Token.show t)
 
    (*
     * Pratt parser for type expressions
@@ -152,32 +196,10 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
    fn s =>
     let
        val rest = ref s
-
-       fun adv () = rest := (case rdr (!rest) of
-                                 NONE => raise CompilerBug "advancing past EOF in makeExpr"
-                               | SOME (_, s) => s)
-
-       fun getPos () =
-           case rdr (!rest) of
-               SOME ((_, p), _) => p
-             | NONE             => raise CompilerBug "getPos called on an empty stream in makeExpr"
-
-       fun peek () =
-           case rdr (!rest) of
-               SOME ((t, _), _) => SOME t
-             | NONE             => NONE
-
-       fun next () =
-           case peek () of
-               SOME t => (adv (); t)
-             | NONE => raise CompilerBug "next called on empty stream in makeExpr"
-
-       fun match t =
-           case peek () of
-               SOME t' => if t = t' then
-                             adv ()
-                          else expected rdr (!rest) (Token.show t)
-             | NONE => expected rdr (!rest) (Token.show t)
+       val getPos = fn _ => getPos rdr rest
+       val adv    = fn _ => adv rdr rest
+       val peek   = fn _ => peek rdr rest
+       val match  = match rdr rest
 
        fun getPrec () : int =
            case peek () of
@@ -297,7 +319,7 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
                val prec' = getPrec ()
             in
                if prec < prec'
-                  then let val t = next ()
+                  then let val t = next rdr rest
                            (* TODO: check if t is a binop *)
                            val lhs = Expr.Infix (Expr.getInfo lhs, getBinop t, lhs,
                                               infexp prec')
@@ -379,33 +401,11 @@ fun makeExpr (rdr : (Token.t * Pos.t, 'a) Reader.t) : (Pos.t AST.Expr.t, 'a) Rea
 fun makeDecl (rdr : (Token.t * Pos.t, 'a) Reader.t) : ((Pos.t, Pos.t) AST.Decl.t, 'a) Reader.t =
    fn s =>
     let
-       val rest = ref s
-
-       (* skip the current token and advance the pointer to the stream *)
-       fun adv () = rest := (case rdr (!rest) of
-                                 NONE => raise CompilerBug "advancing past EOF in makeDecl"
-                               | SOME (_, s) => s)
-
-       (* look ahead one token *)
-       fun peek () =
-           case rdr (!rest) of
-               SOME ((t, _), _) => SOME t
-             | NONE             => NONE
-
-       (* extract the position from the token at the head of the stream *)
-       fun getPos () =
-           case rdr (!rest) of
-               SOME ((_, p), _) => p
-             | NONE             => raise CompilerBug "getPos called on empty stream in makeDecl"
-
-       (* look ahead one token and compare it to the given token, advancing if they match *)
-       fun match t =
-           case peek () of
-               SOME t' => if t = t' then
-                             adv ()
-                          else expected rdr (!rest) (Token.show t)
-             | NONE    => expected rdr (!rest) (Token.show t)
-
+       val rest   = ref s
+       val getPos = fn _ => getPos rdr rest
+       val adv    = fn _ => adv rdr rest
+       val peek   = fn _ => peek rdr rest
+       val match  = match rdr rest
 
        (* parse a single constructor, returning its name and (optionally) its argument type *)
        fun ctor () : string * Pos.t AST.Type.t option =
